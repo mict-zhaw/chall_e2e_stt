@@ -298,6 +298,5 @@ If you use the dataset or code in your research, please kindly cite our work:
   url={https://openreview.net/forum?id=XPIwvlqIfI}
 }
 ```
-```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
