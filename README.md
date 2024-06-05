@@ -46,16 +46,17 @@
 
 ## About the Project ChaLL
 
+> ChaLL, a voice-based chatbot that provides language learners
+with opportunities to practice speaking in both focused and unfocused task-based conversations and
+receive feedback, free from the time constraints and pressures of the traditional classroom setting.
+
 ### ChaLL Data
 
-As part of the ChaLL project, data for speech-to-text (STT) research and error recognition analysis was gathered. 
+As part of the ChaLL project, data for speech-to-text (STT) research and error recognition analysis was gathered:
 
-#### Data Sources And Structure
+1) **Audio Files**: We collected audio recordings from educational interventions across different grades. Each file is identified by the school's postal code, grade, and an audio ID. Recording quality varies due to environment, equipment, and speakers' accents.
 
-1) **Audio Files**: We collect audio recordings in M4A and MP3 formats from various educational interventions across different school grades. Each audio file is uniquely identifiable by a filename that incorporates the school's postal code, grade, and an audio ID. The recordings vary in quality and characteristics, influenced by factors such as the recording environment, the equipment used, and the speakers' accents and language proficiency levels.
-
-2) **Transcripts**: Transcripts are essential for pairing spoken words with written forms and are provided in JSON format. They include detailed metadata about the recordings, the speakers, and segmented speech data. Each segment details individual words with timestamps, capturing nuances like repetitions, language-specific spellings, and non-standard speech elements:
-
+2) **Transcripts**: Transcripts pair spoken words with text and include metadata on recordings, speakers, and segmented speech. Each segment details words with timestamps, capturing nuances like repetitions, language-specific spellings, and non-standard speech elements:
    - *`@g` Swiss-German Words*: "He plays on the Wiese@g"
    - *`@?` Best Guess*: Used for uncertain transcriptions, e.g.: "It’s yellow and have@? a nice face."
    - *`@!` Speech Errors*: Marks learner's speech errors, e.g.: "He play@! soccer."
@@ -64,9 +65,9 @@ As part of the ChaLL project, data for speech-to-text (STT) research and error r
    - *`--` Reformulations*: Marked with double dashes, e.g.: "He’s -- he doesn’t like school."
    - *`(...)`Long Pauses*: Denoted with ellipses "(…)"
 
-3) **Metadata**: A comprehensive Excel file serves as the metadata source, documenting each audio recording with details about the intervention, participants, recording conditions, and tasks assigned. This metadata enhances our understanding of the context in which each recording was made, although it does not directly link to the speakers in the transcripts due to the complexity of accurately matching voices to participants.
+3) **Metadata**: An Excel file documents metadata for each audio recording, detailing the intervention, participants, recording conditions, and tasks. This enhances understanding of the recording context but doesn't link speakers to transcripts due to matching complexity.
 
-#### Dataset
+### Data Preparation and Availability
 
 Data processing for this project has been outsourced and divided into two resources for easy access: 
 a [data preparation repository](https://github.zhaw.ch/mict/chall_data) (🔒) and a [Huggingface dataset](https://huggingface.co/datasets/mict-zhaw/chall).
@@ -76,8 +77,19 @@ The data preparation repository is relevant if you wish to generate your own dat
 This process has been outsourced to ensure anonymization. The data is anonymized in this repository, and having direct access to it would endanger this anonymity.
 
 - **Huggingface Dataset**:
-To use the prepared data, refer to the Huggingface dataset. For ethical reasons, the "chall data" is hosted on a separate server and must be downloaded manually. Please follow the instructions on the [model card](https://huggingface.co/datasets/mict-zhaw/chall) to download and access this data.
+To use the prepared data, refer to the Huggingface dataset.
+For ethical reasons, the data is hosted on a separate server and must be downloaded manually.
+Please follow the instructions on the [model card](https://huggingface.co/datasets/mict-zhaw/chall) to download and access this data.
 When using the Huggingface dataset, you have two configuration options: use the default configuration to access the data as used in the paper, or use a custom configuration to define how the data is prepared according to your specific needs.
+
+
+### Model `ChaLL-300M`
+
+[`ChaLL-300M`](https://huggingface.co/mict-zhaw/chall_wav2vec2_xlsr_300m) is a fine-tuned ASR model from the Wav2Vec-XLSR-300M base model.
+This model represents the best performing fold (Fold 5) from a k-fold cross-validation training process as described in the paper.
+It addresses the unique challenges of transcribing the spontaneous speech of young English learners by preserving their grammatical, lexical, and pronunciation errors.
+
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
