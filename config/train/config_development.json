@@ -1,0 +1,46 @@
+{
+  "experiment_name": "chall_dev",
+  "experiment_tag": "wav2vec2_xlsr_300m",
+
+  "train_corpora": [["mict-zhaw/chall", "train"]],
+  "eval_corpora": [["mict-zhaw/chall", "eval"]],
+
+  "alt_base_path": "./",
+  "data_dir": "../chall_data/preprocessed_data/chall_data",
+
+  "dataset_kwargs": {
+    "lowercase": true,
+    "name": "asr_acl",
+    "special_terms_mapping": {"ps5": "ps five", "ps4": "ps four", "3d": "three d"},
+    "folds": {
+      "train": ["1", "2", "3", "4", "7", "8", "10", "12", "13", "14", "15", "17", "18", "19", "20", "21"],
+      "test": ["5", "9", "16"],
+      "eval": ["6", "11"]
+    }
+  },
+
+  "seed": 123,
+  "device": "cuda",
+  "wav2vec_base_model": "facebook/wav2vec2-xls-r-300m",
+  "checkpoint": null,
+
+  "n_steps": 250,
+  "batch_size": 8,
+  "eval_batch_size": 1,
+  "gradient_accumulation_steps": 160,
+  "gradient_checkpointing": false,
+  "learning_rate": 3e-05,
+  "label_smoothing_factor": 0.0,
+  "bf16": false,
+  "fp16": true,
+  "optim": "adamw_hf",
+  "freeze_w2vm": false,
+
+  "save_total_limit": 2,
+  "validation_freq": 10,
+  "save_step": 10,
+  "logging_step": 5,
+
+  "n_train_samples": 10000,
+  "n_valid_samples": 1000
+}
