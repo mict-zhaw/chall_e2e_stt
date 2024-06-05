@@ -141,8 +141,8 @@ Use the provided configuration to replicate the results from the paper.
   "experiment_name": "chall_paper",
   "experiment_tag": "feb7_5fold",
 
-  "train_corpora": [["mict-zhaw/chall", ["train"]]],
-  "eval_corpora": [["mict-zhaw/chall", ["eval"]]],
+  "train_corpora": [["mict-zhaw/chall", "train"]],
+  "eval_corpora": [["mict-zhaw/chall", "eval"]],
 
   "alt_base_path": "/work_space_data/chall",
   "data_dir": "../chall_data/",
@@ -178,7 +178,7 @@ Use the provided configuration to replicate the results from the paper.
 }
 ```
 
-#### `create_hypothesis_config.json`
+#### `create_hypothesis_config.json`, todo
 
 ```json
 {
@@ -289,9 +289,15 @@ tbd
 If you use the dataset or code in your research, please kindly cite our work:
 
 ```bibtex
-@tbd{
-    title = "Error-preserving Automatic Speech Recognition of Young English Learners’ Language",
+@inproceedings{
+  anonymous2024errorpreserving,
+  title={Error-preserving Automatic Speech Recognition of Young English Learners' Language},
+  author={Janick Michot, Manuela Hürlimann, Jan Deriu, Luzia Sauer, Katsiaryna Mlynchyk, Mark Cieliebak},
+  booktitle={The 62nd Annual Meeting of the Association for Computational Linguistics},
+  year={2024},
+  url={https://openreview.net/forum?id=XPIwvlqIfI}
 }
+```
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
