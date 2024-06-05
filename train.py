@@ -185,21 +185,6 @@ class Wav2VecPipeline:
             #     else:
             #         eval_datasets.append(eval_ds)
 
-            test = load_dataset(
-                    train_corpora[0][0],
-                    # split=train_corpora[0][1],
-                    data_dir=self.data_dir,
-                    cache_dir=cache_dir,
-                    trust_remote_code=True,
-                    folds={"train": ["2"]},
-                    stratify_column="intervention"
-                )
-
-            print(test["train"][0])
-            print(test["train"][7])
-            print(test["train"][20])
-
-
             self.dataset = DatasetDict({
                 "train": load_dataset(
                     train_corpora[0][0],
@@ -218,8 +203,6 @@ class Wav2VecPipeline:
                     **data_kwargs
                 ),
             })
-
-            print(self.dataset["train"][0])
 
     def create_vocabulary_file(self, min_freq: int = 1):
         """
