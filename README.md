@@ -44,6 +44,9 @@
 > </details>
 
 
+> [!NOTE]  
+> This repository is still under construction and further code and instructions for evaluation will be transferred here from the private project repos.
+
 ## About the Project ChaLL
 
 > ChaLL, a voice-based chatbot that provides language learners
