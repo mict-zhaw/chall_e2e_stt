@@ -1,6 +1,8 @@
+import argparse
 import json
 import os
 import random
+import re
 from collections import Counter
 from typing import List
 
@@ -47,7 +49,7 @@ class Wav2VecPipeline:
 
     save_nr: int = 1
     best_wer: float = 1
-    label_feature: str = "clear_text"
+    label_feature: str = "text_label"
 
     accelerate: Accelerator = Accelerator()
 
@@ -64,25 +66,25 @@ class Wav2VecPipeline:
         random.seed(self.config.seed)
 
         # Define data dir
-        self.cache_dir = str(os.path.join(self.config.alt_base_path, "cache"))
+        self.cache_dir = str(os.path.join(self.config.alt_base_path, ".cache"))
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir, exist_ok=True)
 
         # Setup model storage
-        self.base_model_path = str(os.path.join(self.config.alt_base_path, 'models', self.config.experiment_name, self.config.experiment_tag))
+        self.base_model_path = str(os.path.join(self.config.alt_base_path, 'models', config.group, config.job_type, config.experiment_label))
         self.vocab_file = os.path.join(self.base_model_path, 'vocab.json')
         if not os.path.exists(self.base_model_path):
             os.makedirs(self.base_model_path, exist_ok=True)
 
         # Setup logging
-        self.logging_path = str(os.path.join(self.config.alt_base_path, 'logs', self.config.experiment_name, self.config.experiment_tag))
+        self.logging_path = str(os.path.join(self.config.alt_base_path, 'logs', "runs", config.group, config.job_type, config.experiment_label))
         if not os.path.exists(self.logging_path):
             os.makedirs(self.logging_path, exist_ok=True)
         self.logger = TrainLogger(self.logging_path)
         self.config.to_json(self.logging_path)
 
         # Prepared Data Path
-        self.prepared_data_path = os.path.join(self.cache_dir, "tokenized_data", self.config.experiment_name, self.config.experiment_tag)
+        self.prepared_data_path = os.path.join(self.cache_dir, "tokenized_data", config.group, config.job_type, config.experiment_label)
         if not os.path.exists(self.prepared_data_path):
             os.makedirs(self.prepared_data_path, exist_ok=True)
 
@@ -169,7 +171,7 @@ class Wav2VecPipeline:
                 # Load dataset either from disk or using load_dataset
                 if corpus_config.load_from_disk:
                     ds = load_from_disk(
-                        corpus_config.dataset,
+                        os.path.join(self.config.alt_base_path, corpus_config.dataset),
                         **corpus_config.load_dataset_kwargs
                     )
                     ds = ds[corpus_config.split] if corpus_config.split is not None else ds
@@ -183,8 +185,12 @@ class Wav2VecPipeline:
                     )
 
                 # Normalize the columns used for training
-                ds = ds.rename_columns({corpus_config.id_column: "audio_id", corpus_config.audio_column: "audio", corpus_config.text_column: "label"})
-                ds = ds.select_columns([col for col in ["audio_id", "audio", "label", "duration"] if col in ds.column_names])
+                ds = ds.rename_columns({
+                    corpus_config.id_column: "audio_id",
+                    corpus_config.audio_column: "audio",
+                    corpus_config.text_column: self.label_feature
+                })
+                ds = ds.select_columns([col for col in ["audio_id", "audio", self.label_feature, "duration"] if col in ds.column_names])
 
                 def calculate_duration(sample):
                     try:
@@ -216,8 +222,6 @@ class Wav2VecPipeline:
                         cumulative_duration += duration
                         selected_indices.append(i)
                     ds = ds.select(selected_indices)
-
-                    print(ds["audio_id"][::100])
 
                     self.logger.log_event("Data Portion Loaded", cumulative_duration=cumulative_duration, num_samples=len(ds))
 
@@ -260,10 +264,9 @@ class Wav2VecPipeline:
         with open(self.vocab_file, 'wt', encoding='utf-8') as voc_file:
             json.dump(vocab, voc_file)
 
-        self.logger.log_event("Vocabulary File Created", total_chars=len(vocab), vocab=vocab)
+        self.logger.log_event("Vocabulary File Created", total_chars=len(vocab), vocab=vocab, path=self.vocab_file)
 
-    @staticmethod
-    def _create_vocabulary(dataset, min_freq: int = 10, feature: str = "clear_text") -> dict:
+    def _create_vocabulary(self, dataset, min_freq: int = 10, feature: str = "label") -> dict:
         """
         Create a character-level vocabulary from the dataset.
 
@@ -274,7 +277,7 @@ class Wav2VecPipeline:
         """
         vocab = Counter()
         for split in dataset:
-            for clear_text in dataset[split][feature]:
+            for clear_text in dataset[split][self.label_feature]:
                 vocab.update(clear_text)
 
         char2idx = {c: idx for idx, (c, freq) in enumerate(vocab.items(), start=1) if freq > min_freq}
@@ -282,6 +285,7 @@ class Wav2VecPipeline:
         if " " in char2idx:
             char2idx["|"] = char2idx.pop(" ")
         char2idx["[UNK]"] = len(char2idx)
+        char2idx["[PAD]"] = 0
 
         return char2idx
 
@@ -331,7 +335,6 @@ class Wav2VecPipeline:
         """
 
         self.logger.log_event("Prepare Data")
-        label = self.label_feature
         remove_columns = dataset[next(iter(dataset))].column_names
 
         def _prepare_dataset(batch):
@@ -340,7 +343,7 @@ class Wav2VecPipeline:
             # batched output is "un-batched" to ensure mapping is correct
             batch["input_values"] = self.processor(audio["array"], sampling_rate=audio["sampling_rate"]).input_values[0]
             with self.processor.as_target_processor():
-                batch["labels"] = self.processor(batch[label]).input_ids
+                batch["labels"] = self.processor(batch[self.label_feature]).input_ids
             return batch
 
         # Do data preparation on the first process and load from cache in other
@@ -382,7 +385,7 @@ class Wav2VecPipeline:
 
         model.config.ctc_zero_infinity = True
         model.freeze_feature_extractor()
-        if self.config.freeze_w2vm:
+        if self.config.train_args.freeze_w2vm:
             for module in model.wav2vec2.modules():
                 if isinstance(module, torch.nn.Linear):
                     module.weight.requires_grad = False
@@ -442,20 +445,24 @@ class Wav2VecPipeline:
         assert self.processor, "Processor not initialized"
         assert self.tokenizer, "Tokenizer not initialized"
 
+        conf = self.config
+
         self.model = self._get_model()
         self.training_args = self._get_train_arguments()
         self.data_collator = DataCollatorCTCWithPadding(processor=self.processor, padding=True)
 
-        self.logger.log_event("Start Train", is_cuda_available=torch.cuda.is_available(), train_args=self.config.train_args)
+        self.logger.log_event("Start Train", is_cuda_available=torch.cuda.is_available(), train_args=conf.train_args.model_dump())
 
-        name = f'{self.config.experiment_name}_{self.config.experiment_tag}'
-        group = self.config.experiment_tag
+        settings = wandb.Settings(job_name='train_job')
+        with (wandb.init(settings=settings, job_type=conf.job_type, id=config.run_id,
+                         group=conf.group, config=conf.dict(), name=conf.experiment_label, resume="allow") as run):
 
-        with (wandb.init(config=self.config.to_dict(), name=name, job_type="train", group=group) as run):
-            # todo add use_artifact and other "mt" information stuff...
-            #   - resume
-            #   - project / entity
-            #   - id (for job resubmission)
+            for corpora in self.config.train_corpora + self.config.eval_corpora:
+                try:
+                    artifact = re.sub(r'_v(\d+)', r':v\1', os.path.basename(corpora.dataset))
+                    run.use_artifact(artifact)
+                except Exception:
+                    self.logger.log_event(f'Artifact not {artifact} found on WandB.', level="error")
 
             self.logger.log_event("Setup Trainer")
 
@@ -552,10 +559,12 @@ class Wav2VecPipeline:
 
 
 if __name__ == '__main__':
-    os.environ["WANDB_MODE"] = "offline"
+
+    # os.environ["WANDB_MODE"] = "offline"
     env = os.environ.get('ENV', _DEFAULT_ENV)
 
     # Combine configs to use defaults and experiment-specific configs
-    config = TrainConfig.from_yaml("config/train_chall_mt/config-defaults.yaml", "config/train_chall_mt/config-60-20.yaml")
+    # config = TrainConfig.from_yaml(args.default_config, args.config)
+    config = TrainConfig.from_cli(default_config_file="config/train_chall_mt/config-defaults.yaml")
     pipeline = Wav2VecPipeline(config=config, env=env)
     pipeline.run()

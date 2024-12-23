@@ -2,15 +2,15 @@
 
 experiment_name:
   desc: "Name of the experiment"
-  value: "chall_dev"
+  value: "chall_mt_train"
 
 experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
-  value: "wav2vec2_xlsr_300m"
+  value: "default"
 
 alt_base_path:
   desc: "Alternate base path for data or checkpoints"
-  value: "./"
+  value: "../chall_mt/"
 
 seed:
   desc: "Random seed for reproducibility"
@@ -27,11 +27,9 @@ train_corpora:
 eval_corpora:
   desc: "Evaluation corpora configurations"
   value:
-    - dataset: "mict-zhaw/chall"
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_v0"
       split: "test"
-      load_dataset_kwargs:
-        name: "chall_mt"
-        data_dir: "../chall_data/preprocessed_data/chall_data"
+      load_from_disk: true
 
 wav2vec_base_model:
   desc: "Desc"
@@ -57,14 +55,14 @@ training_args:
     eval_batch_size: 1
     gradient_accumulation_steps: 160
     gradient_checkpointing: false
-    learning_rate: 3e-05
+    learning_rate: 5e-05
     label_smoothing_factor: 0.0
-    bf16: false
-    fp16: true
-    optim: adamw_hf
+    fp16: false
+    bf16: true
+    optim: "adamw_bnb_8bit"
     freeze_w2vm: false
 
     save_total_limit: 2
-    validation_freq: 10
-    save_step: 10
-    logging_step: 5
+    validation_freq: 50
+    save_step: 100
+    logging_step: 20

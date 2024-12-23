@@ -155,6 +155,16 @@ class TrainConfig(BaseModel):
         description="ID associated with a run. Also used to resume a job."
     )
 
+    job_type: str = Field(
+        default_factory=lambda: os.getenv("JOB_TYPE", "train_diff_data_portions"),
+        description="Specify the type of run, which is useful when you're grouping runs together."
+    )
+
+    group: str = Field(
+        default_factory=lambda: os.getenv("GROUP", "train"),
+        description="Specify a group to organize individual runs into a larger experiment."
+    )
+
     train_corpora: List[CorpusConfig] = Field(
         ...,
         description="List of training corpora configurations."
@@ -164,7 +174,7 @@ class TrainConfig(BaseModel):
         description="List of evaluation corpora configurations."
     )
     experiment_name: str = Field(
-        default="ChaLL",
+        default="chall",
         description="Name of the experiment."
     )
     experiment_tag: str = Field(
@@ -207,6 +217,10 @@ class TrainConfig(BaseModel):
         default=TrainArgs(),
         description="Arguments specific to the training process."
     )
+
+    @property
+    def experiment_label(self):
+        return f'{self.experiment_name}_{self.experiment_tag}'
 
     @classmethod
     def from_json(cls, json_path: str) -> "TrainConfig":
@@ -296,7 +310,7 @@ class TrainConfig(BaseModel):
         return parser
 
     @classmethod
-    def from_cli(cls, **default_dict):
+    def from_cli(cls, default_config_file: str = None, **default_dict):
         """
         Initializes the class by merging default values, config file values, and command-line
         arguments, with command-line arguments having the highest priority.
@@ -320,7 +334,11 @@ class TrainConfig(BaseModel):
         config_dict = {}
         if args_dict["config"] is not None:
             try:
-                config_dict = cls.parse_yaml_to_dict(args_dict["config"])
+                if default_config_file is not None:
+                    config_dict = cls.parse_yaml_to_dict(default_config_file)
+                    config_dict.update(cls.parse_yaml_to_dict(args_dict["config"]))
+                else:
+                    config_dict = cls.parse_yaml_to_dict(args_dict["config"])
             except FileNotFoundError:
                 print(f"Warning: Config file '{args_dict['config']}' not found. Using defaults.")
 
