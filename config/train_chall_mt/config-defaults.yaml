@@ -1,0 +1,70 @@
+# config-defaults.yaml
+
+experiment_name:
+  desc: "Name of the experiment"
+  value: "chall_dev"
+
+experiment_tag:
+  desc: "Tag for the experiment to differentiate configurations"
+  value: "wav2vec2_xlsr_300m"
+
+alt_base_path:
+  desc: "Alternate base path for data or checkpoints"
+  value: "./"
+
+seed:
+  desc: "Random seed for reproducibility"
+  value: 123
+
+device:
+  desc: "Device to run the training on, e.g., 'cuda' or 'cpu'"
+  value: "cuda"
+
+train_corpora:
+  desc: "Training corpora configurations. Overwrite in a specific configuration."
+  value: null
+
+eval_corpora:
+  desc: "Evaluation corpora configurations"
+  value:
+    - dataset: "mict-zhaw/chall"
+      split: "test"
+      load_dataset_kwargs:
+        name: "chall_mt"
+        data_dir: "../chall_data/preprocessed_data/chall_data"
+
+wav2vec_base_model:
+  desc: "Desc"
+  value: "facebook/wav2vec2-xls-r-300m"
+
+checkpoint:
+  desc: "Path to a pre-trained model checkpoint to resume training."
+  value: null
+
+n_train_samples:
+  desc: "Number of training samples to use. -1 uses all samples."
+  value: 10
+
+n_valid_samples:
+  desc: "Number of validation samples to use. -1 uses all samples."
+  value: 1
+
+training_args:
+  desc: "Training arguments"
+  value:
+    n_steps: 250
+    batch_size: 8
+    eval_batch_size: 1
+    gradient_accumulation_steps: 160
+    gradient_checkpointing: false
+    learning_rate: 3e-05
+    label_smoothing_factor: 0.0
+    bf16: false
+    fp16: true
+    optim: adamw_hf
+    freeze_w2vm: false
+
+    save_total_limit: 2
+    validation_freq: 10
+    save_step: 10
+    logging_step: 5

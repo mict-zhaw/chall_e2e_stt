@@ -1,0 +1,19 @@
+# config-defaults-60-40.yaml
+
+experiment_name:
+  desc: "Name of the experiment"
+  value: "chall_mt_train_60_40"
+
+train_corpora:
+  desc: "Training corpora configurations"
+  value:
+    - dataset: "mict-zhaw/chall"
+      split: "train"
+      target_duration_hours: 60
+      load_dataset_kwargs:
+        name: "chall_mt"
+        data_dir: "../chall_data/preprocessed_data/chall_data"
+    - dataset: "../chall_mt/data/chall_mt/processed/f5_synth_stt_dataset_v0"
+      split: "train"
+      load_from_disk: true
+      target_duration_hours: 40

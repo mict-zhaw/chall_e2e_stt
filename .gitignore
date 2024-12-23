@@ -60,14 +60,17 @@ docs/_build
 /data/**/audio
 
 /logging
-/logging2
+/logs
 /wandb
 /venv
 /tmp
 /cache
+/.cache
 
 /preprocessed_data
 /notebooks/sandbox/sample_audios/
 
 
 */.ipynb_checkpoints
+
+.env
