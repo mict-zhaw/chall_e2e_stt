@@ -35,23 +35,15 @@ checkpoint:
   desc: "Path to a pre-trained model checkpoint to resume training."
   value: null
 
-n_train_samples:
-  desc: "Number of training samples to use. -1 uses all samples."
-  value: 10
-
-n_valid_samples:
-  desc: "Number of validation samples to use. -1 uses all samples."
-  value: 1
-
 training_args:
   desc: "Training arguments"
   value:
     n_steps: 250
-    batch_size: 8
+    batch_size: 16
     eval_batch_size: 1
-    gradient_accumulation_steps: 160
+    gradient_accumulation_steps: 80
     gradient_checkpointing: false
-    learning_rate: 5e-05
+    learning_rate: 5e-05 # 0.00005
     label_smoothing_factor: 0.0
     fp16: false
     bf16: true
