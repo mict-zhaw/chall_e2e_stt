@@ -108,7 +108,7 @@ class Wav2VecPipeline:
         self.logger.log_event("Run", env=self.env, alt_base_path=config.alt_base_path,
                               job_type=config.job_type, experiment_label=config.experiment_label, run_id=config.run_id)
 
-        dataset = self.load_data(self.config.train_corpora, self.config.eval_corpora)  # keep an eye on the sampling rate
+        dataset = self.load_data(self.config.train_corpora, self.config.eval_corpora)
         self.create_vocabulary_file(dataset)
 
         self.tokenizer = self.create_tokenizer()
