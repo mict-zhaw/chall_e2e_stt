@@ -454,7 +454,7 @@ class Wav2VecPipeline:
                 compute_metrics=self.compute_metrics
             )
 
-            self.logger.log_event("Start  Trainer")
+            self.logger.log_event("Start Trainer")
 
             ignore_keys_for_eval = ['past_key_values', 'encoder_last_hidden_state', 'hidden_states', 'cross_attentions']
             train_res = trainer.train(resume_from_checkpoint=False, ignore_keys_for_eval=ignore_keys_for_eval)
