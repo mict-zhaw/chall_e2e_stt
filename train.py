@@ -77,7 +77,7 @@ class Wav2VecPipeline:
             os.makedirs(self.base_model_path, exist_ok=True)
 
         # Setup logging
-        self.logging_path = str(os.path.join(self.config.alt_base_path, 'logs', "runs", config.group, config.job_type, config.experiment_label))
+        self.logging_path = str(os.path.join(self.config.alt_base_path, 'logs', "runs", config.group, config.job_type, config.run_id or ""))
         if not os.path.exists(self.logging_path):
             os.makedirs(self.logging_path, exist_ok=True)
         self.logger = TrainLogger(self.logging_path)
