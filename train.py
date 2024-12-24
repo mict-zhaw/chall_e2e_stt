@@ -84,9 +84,9 @@ class Wav2VecPipeline:
         self.config.to_json(self.logging_path)
 
         # Prepared Data Path
-        self.prepared_data_path = os.path.join(self.cache_dir, "tokenized_data", config.group, config.job_type, config.experiment_label)
-        if not os.path.exists(self.prepared_data_path):
-            os.makedirs(self.prepared_data_path, exist_ok=True)
+        # self.prepared_data_path = os.path.join(self.cache_dir, "tokenized_data", config.group, config.job_type, config.experiment_label)
+        # if not os.path.exists(self.prepared_data_path):
+        #     os.makedirs(self.prepared_data_path, exist_ok=True)
 
     def save_dataset(self, path: str):
         """
