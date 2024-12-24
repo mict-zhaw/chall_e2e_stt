@@ -8,10 +8,6 @@ experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
   value: "default"
 
-alt_base_path:
-  desc: "Alternate base path for data or checkpoints"
-  value: "../chall_mt/"
-
 seed:
   desc: "Random seed for reproducibility"
   value: 123

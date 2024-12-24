@@ -198,7 +198,7 @@ class TrainConfig(BaseModel):
         description="Number of training samples to use. -1 uses all samples."
     )
     alt_base_path: str = Field(
-        default="./",
+        default_factory=lambda: os.getenv("ALT_BASE_PATH", "./"),
         description="Alternate base path for data or checkpoints."
     )
     wav2vec_base_model: str = Field(

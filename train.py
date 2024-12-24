@@ -105,7 +105,8 @@ class Wav2VecPipeline:
         Run the training pipeline.
         """
 
-        self.logger.log_event("Run", env=self.env)
+        self.logger.log_event("Run", env=self.env, alt_base_path=config.alt_base_path,
+                              job_type=config.job_type, experiment_label=config.experiment_label, run_id=config.run_id)
 
         dataset = self.load_data(self.config.train_corpora, self.config.eval_corpora)  # keep an eye on the sampling rate
         self.create_vocabulary_file(dataset)
@@ -115,29 +116,6 @@ class Wav2VecPipeline:
 
         dataset = self.prepare_dataset(dataset)
         self.train(dataset)
-
-        dataset.cleanup_cache_files()
-
-    def run_kfold(self):
-        """
-        Run the k-fold training pipeline.
-
-        todo besser nicht... Lieber 1 config + SLURM => 1 Job
-        """
-
-        dataset = self.load_data(self.config.train_corpora, self.config.eval_corpora, self.config.dataset_kwargs)
-        self.create_vocabulary_file(dataset)
-
-        self.tokenizer = self.create_tokenizer()
-        self.processor = self.create_processor()
-
-        dataset = self.prepare_dataset(dataset)
-
-        splits = dataset.keys()
-        for split in dataset:
-            fold_dataset = self.prepare_train_test_splits(dataset, train_split=[s for s in splits if s != split], eval_split=split)
-            self.train(fold_dataset)
-            fold_dataset.cleanup_cache_files()
 
         dataset.cleanup_cache_files()
 
