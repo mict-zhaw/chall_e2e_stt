@@ -19,5 +19,5 @@ train_corpora:
 train_args:
   desc: "Training arguments for two gpus. 16*40*2=1280"
   value:
-    batch_size: 16
-    gradient_accumulation_steps: 40
+    batch_size: 32
+    gradient_accumulation_steps: 20

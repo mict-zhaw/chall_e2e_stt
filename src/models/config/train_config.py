@@ -107,6 +107,18 @@ class TrainArgs(BaseModel):
         default=3e-05,
         description="Learning rate for the optimizer."
     )
+    weight_decay: float = Field(
+        default=0.0,
+        description="Weight decay"
+    )
+    warmup_steps: int = Field(
+        default=0,
+        description="Linear warmup over warmup_steps."
+    )
+    warmup_ratio: float = Field(
+        default=0.0,
+        description="Linear warmup over warmup_ratio fraction of total steps."
+    )
     label_smoothing_factor: float = Field(
         default=0.0,
         description="Label smoothing factor for loss calculation."
