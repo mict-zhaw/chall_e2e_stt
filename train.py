@@ -4,6 +4,7 @@ import os
 import random
 import re
 from collections import Counter
+from pprint import pprint
 from typing import List
 
 import evaluate
@@ -548,6 +549,9 @@ class Wav2VecPipeline:
 
 
 if __name__ == '__main__':
+
+    print("Environment Variables:")
+    pprint(dict(os.environ))
 
     # os.environ["WANDB_MODE"] = "offline"
     env = os.environ.get('ENV', _DEFAULT_ENV)
