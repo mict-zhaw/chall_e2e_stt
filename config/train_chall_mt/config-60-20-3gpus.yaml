@@ -14,10 +14,10 @@ train_corpora:
     - dataset: "data/chall_mt/processed/f5_synth_stt_dataset_v1"
       split: "train"
       load_from_disk: true
-      target_duration_hours: 0
+      target_duration_hours: 20
 
 train_args:
-  desc: "Training arguments on three gpus. 18*24*3=1296"
+  desc: "Training arguments on 3 gpus. 18*24*3=1296"
   value:
     batch_size: 18
     gradient_accumulation_steps: 24
