@@ -1,10 +1,8 @@
-import argparse
 import json
 import os
 import random
 import re
 from collections import Counter
-from pprint import pprint
 from typing import List
 
 import evaluate
@@ -108,8 +106,22 @@ class Wav2VecPipeline:
         Run the training pipeline.
         """
 
-        self.logger.log_event("Run", env=self.env, alt_base_path=config.alt_base_path,
-                              job_type=config.job_type, experiment_label=config.experiment_label, run_id=config.run_id)
+        self.logger.log_event(
+            "Start Run",
+            env=self.env,
+            alt_base_path=config.alt_base_path,
+            job_type=config.job_type,
+            experiment_label=config.experiment_label,
+            run_id=config.run_id,
+            wandb_api_key=os.environ.get("WANDB_API_KEY"),
+            wandb_entity=os.environ.get("WANDB_ENTITY"),
+            wandb_project=os.environ.get("WANDB_PROJECT"),
+            wandb_dir=os.environ.get("WANDB_DIR"),
+            wandb_cache_dir=os.environ.get("WANDB_CACHE_DIR"),
+            hf_home=os.environ.get("HF_HOME"),
+            alt_base_path_env=os.environ.get("ALT_BASE_PATH"),
+            rel_data_dir=os.environ.get("REL_DATA_DIR"),
+        )
 
         dataset = self.load_data(self.config.train_corpora, self.config.eval_corpora)
         self.create_vocabulary_file(dataset)
@@ -549,10 +561,6 @@ class Wav2VecPipeline:
 
 
 if __name__ == '__main__':
-
-    print("Environment Variables:")
-    pprint(dict(os.environ))
-
     # os.environ["WANDB_MODE"] = "offline"
     env = os.environ.get('ENV', _DEFAULT_ENV)
 
