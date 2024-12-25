@@ -394,7 +394,7 @@ class Wav2VecPipeline:
             per_device_train_batch_size=train_args.batch_size,
             per_device_eval_batch_size=train_args.eval_batch_size,
             gradient_accumulation_steps=train_args.gradient_accumulation_steps,
-            gradient_checkpointing=train_args.gradient_checkpointing,
+            gradient_checkpointing=train_args.gradient_checkpointing/config.n_gpus,
             evaluation_strategy="steps",
             num_train_epochs=train_args.n_steps,
             no_cuda=no_cuda,

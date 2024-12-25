@@ -35,7 +35,7 @@ checkpoint:
   desc: "Path to a pre-trained model checkpoint to resume training."
   value: null
 
-training_args:
+train_args:
   desc: "Training arguments"
   value:
     n_steps: 250

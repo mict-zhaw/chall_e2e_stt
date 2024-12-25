@@ -309,6 +309,16 @@ class TrainConfig(BaseModel):
         parser.add_argument("--config", dest="config", type=str, help="Path to YAML config file")
         return parser
 
+    @staticmethod
+    def deep_update(original, updates):
+        for key, value in updates.items():
+            if isinstance(value, dict) and key in original and isinstance(original[key], dict):
+                # If both are dicts, update recursively
+                TrainConfig.deep_update(original[key], value)
+            else:
+                # Otherwise, overwrite
+                original[key] = value
+
     @classmethod
     def from_cli(cls, default_config_file: str = None, **default_dict):
         """
@@ -336,7 +346,7 @@ class TrainConfig(BaseModel):
             try:
                 if default_config_file is not None:
                     config_dict = cls.parse_yaml_to_dict(default_config_file)
-                    config_dict.update(cls.parse_yaml_to_dict(args_dict["config"]))
+                    cls.deep_update(original=config_dict, updates=cls.parse_yaml_to_dict(args_dict["config"]))
                 else:
                     config_dict = cls.parse_yaml_to_dict(args_dict["config"])
             except FileNotFoundError:
