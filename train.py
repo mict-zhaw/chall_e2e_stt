@@ -185,6 +185,7 @@ class Wav2VecPipeline:
             if "duration" not in ds.column_names:
                 with self.accelerator.main_process_first():
                     ds_durations = ds.map(calculate_duration, num_proc=1, remove_columns=["audio"], desc="Calculate Durations")
+                with self.accelerator.main_process_first():
                     ds = ds.add_column("duration", ds_durations["duration"])
 
             # Optionally select samples to match target audio duration
@@ -213,17 +214,21 @@ class Wav2VecPipeline:
 
             self.logger.log_event("Data Loaded", dataset_dict="\n".join([ds.__str__() for ds in dataset_dict.items()]))
 
-            # Concatenate splits into one DatasetDict
-            result_dataset_dict = DatasetDict({
-                split_name: concatenate_datasets(
-                    [dataset_dict_entry[split_name]
-                     for dataset_dict_entry in dataset_dict.values()
-                     if split_name in dataset_dict_entry]
-                )
-                for split_name in {split for dataset_dict_entry in dataset_dict.values() for split in dataset_dict_entry.keys()}
-            })
+        # Concatenate splits into one DatasetDict
+        result_dataset_dict = DatasetDict({
+            split_name: concatenate_datasets(
+                [dataset_dict_entry[split_name]
+                 for dataset_dict_entry in dataset_dict.values()
+                 if split_name in dataset_dict_entry]
+            )
+            for split_name in {split for dataset_dict_entry in dataset_dict.values() for split in dataset_dict_entry.keys()}
+        })
 
-            return result_dataset_dict
+        # Assert that the required splits exist
+        missing_splits = [split for split in ["train", "eval"] if split not in result_dataset_dict]
+        assert not missing_splits, f"Missing required splits: {missing_splits}"
+
+        return result_dataset_dict
 
     def create_vocabulary_file(self, dataset: DatasetDict, min_freq: int = 1):
         """
