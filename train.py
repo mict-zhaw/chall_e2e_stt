@@ -51,7 +51,7 @@ class Wav2VecPipeline:
     best_wer: float = 1
     label_feature: str = "text_label"
 
-    accelerate: Accelerator = Accelerator()
+    accelerator: Accelerator
 
     def __init__(self, config: TrainConfig, env: str = "production"):
         """
@@ -87,6 +87,8 @@ class Wav2VecPipeline:
         # self.prepared_data_path = os.path.join(self.cache_dir, "tokenized_data", config.group, config.job_type, config.experiment_label)
         # if not os.path.exists(self.prepared_data_path):
         #     os.makedirs(self.prepared_data_path, exist_ok=True)
+
+        self.accelerator = Accelerator()
 
     def save_dataset(self, path: str):
         """
@@ -137,16 +139,17 @@ class Wav2VecPipeline:
         dataset_dict = {c: DatasetDict() for c in [c.dataset for c in train_corpora + eval_corpora]}
 
         # do this on first and load the other from the cache
-        with self.accelerate.main_process_first():
-            for corpus_config in train_corpora + eval_corpora:
+        # with self.accelerator.main_process_first():
+        for corpus_config in train_corpora + eval_corpora:
 
-                self.logger.log_event("Start Processing Corpus", corpus=corpus_config.dataset, corpus_config=corpus_config.model_dump())
+            self.logger.log_event("Start Processing Corpus", corpus=corpus_config.dataset, corpus_config=corpus_config.model_dump())
 
-                # Skip if target duration is zero
-                if corpus_config.target_duration_hours == 0:
-                    continue
+            # Skip if target duration is zero
+            if corpus_config.target_duration_hours == 0:
+                continue
 
-                # Load dataset either from disk or using load_dataset
+            # Load dataset either from disk or using load_dataset
+            with self.accelerator.main_process_first():
                 if corpus_config.load_from_disk:
                     ds = load_from_disk(
                         os.path.join(self.config.alt_base_path, corpus_config.dataset),
@@ -162,50 +165,51 @@ class Wav2VecPipeline:
                         **corpus_config.load_dataset_kwargs
                     )
 
-                # Normalize the columns used for training
-                ds = ds.rename_columns({
-                    corpus_config.id_column: "audio_id",
-                    corpus_config.audio_column: "audio",
-                    corpus_config.text_column: self.label_feature
-                })
-                ds = ds.select_columns([col for col in ["audio_id", "audio", self.label_feature, "duration"] if col in ds.column_names])
+            # Normalize the columns used for training
+            ds = ds.rename_columns({
+                corpus_config.id_column: "audio_id",
+                corpus_config.audio_column: "audio",
+                corpus_config.text_column: self.label_feature
+            })
+            ds = ds.select_columns([col for col in ["audio_id", "audio", self.label_feature, "duration"] if col in ds.column_names])
 
-                def calculate_duration(sample):
-                    try:
-                        sample["duration"] = sample["audio"]['array'].shape[0] / sample["audio"]['sampling_rate']
-                    except Exception as e:
-                        sample["duration"] = None
-                        print(f"Error processing sample: {e}")
-                    return sample
+            def calculate_duration(sample):
+                try:
+                    sample["duration"] = sample["audio"]['array'].shape[0] / sample["audio"]['sampling_rate']
+                except Exception as e:
+                    sample["duration"] = None
+                    print(f"Error processing sample: {e}")
+                return sample
 
-                # Calculate duration if not existing
-                if "duration" not in ds.column_names:
+            # Calculate duration if not existing
+            if "duration" not in ds.column_names:
+                with self.accelerator.main_process_first():
                     ds_durations = ds.map(calculate_duration, num_proc=1, remove_columns=["audio"], desc="Calculate Durations")
                     ds = ds.add_column("duration", ds_durations["duration"])
 
-                # Optionally select samples to match target audio duration
-                if corpus_config.target_duration_seconds is not None and corpus_config.split is not None:
+            # Optionally select samples to match target audio duration
+            if corpus_config.target_duration_seconds is not None and corpus_config.split is not None:
 
-                    # Shuffle the data before splitting into data portions
-                    ds = ds.shuffle(seed=self.config.seed)
+                # Shuffle the data before splitting into data portions
+                ds = ds.shuffle(seed=self.config.seed)
 
-                    # Find and select the indexes that result in a dataset with the target audio duration
-                    cumulative_duration = 0
-                    selected_indices = []
-                    for i, duration in enumerate(ds["duration"]):
-                        if duration is None:
-                            continue
-                        if cumulative_duration + duration >= corpus_config.target_duration_seconds:
-                            break
-                        cumulative_duration += duration
-                        selected_indices.append(i)
-                    ds = ds.select(selected_indices)
+                # Find and select the indexes that result in a dataset with the target audio duration
+                cumulative_duration = 0
+                selected_indices = []
+                for i, duration in enumerate(ds["duration"]):
+                    if duration is None:
+                        continue
+                    if cumulative_duration + duration >= corpus_config.target_duration_seconds:
+                        break
+                    cumulative_duration += duration
+                    selected_indices.append(i)
+                ds = ds.select(selected_indices)
 
-                    self.logger.log_event("Data Portion Loaded", cumulative_duration=cumulative_duration, num_samples=len(ds))
+                self.logger.log_event("Data Portion Loaded", cumulative_duration=cumulative_duration, num_samples=len(ds))
 
-                if isinstance(ds, Dataset):
-                    ds = DatasetDict({corpus_config.split: ds})
-                dataset_dict[corpus_config.dataset].update(ds)
+            if isinstance(ds, Dataset):
+                ds = DatasetDict({corpus_config.split: ds})
+            dataset_dict[corpus_config.dataset].update(ds)
 
             self.logger.log_event("Data Loaded", dataset_dict="\n".join([ds.__str__() for ds in dataset_dict.items()]))
 
@@ -325,7 +329,7 @@ class Wav2VecPipeline:
             return batch
 
         # Do data preparation on the first process and load from cache in other
-        with self.accelerate.main_process_first():
+        with self.accelerator.main_process_first():
             dataset = dataset.map(_prepare_dataset, remove_columns=remove_columns, num_proc=4, load_from_cache_file=True)
 
         self.logger.log_event("Data Prepared")
