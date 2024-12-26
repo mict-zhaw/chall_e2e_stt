@@ -155,7 +155,7 @@ class Wav2VecPipeline:
         # with self.accelerator.main_process_first():
         for corpus_config in train_corpora + eval_corpora:
 
-            self.logger.log_event("Start Processing Corpus", corpus=corpus_config.dataset, corpus_config=corpus_config.model_dump())
+            self.logger.log_event("Load Dataset", corpus=corpus_config.dataset, split=corpus_config.split)
 
             # Skip if target duration is zero
             if corpus_config.target_duration_hours == 0:
@@ -219,13 +219,15 @@ class Wav2VecPipeline:
                     selected_indices.append(i)
                 ds = ds.select(selected_indices)
 
-                self.logger.log_event("Data Portion Loaded", cumulative_duration=cumulative_duration, num_samples=len(ds))
+                self.logger.log_event("Dataset Loaded", corpus=corpus_config.dataset,
+                                      split=corpus_config.split, cumulative_duration=cumulative_duration, num_samples=len(ds))
 
             if isinstance(ds, Dataset):
                 ds = DatasetDict({corpus_config.split: ds})
             dataset_dict[corpus_config.dataset].update(ds)
 
-            self.logger.log_event("Data Loaded", dataset_dict="\n".join([ds.__str__() for ds in dataset_dict.items()]))
+        self.logger.log_event("Datasets Loaded",
+                              dataset_dict=[(key, [(split, len(val[split])) for split in val]) for key, val in dataset_dict.items()])
 
         # Concatenate splits into one DatasetDict
         result_dataset_dict = DatasetDict({
@@ -240,6 +242,10 @@ class Wav2VecPipeline:
         # Assert that the required splits exist
         missing_splits = [split for split in ["train", "eval"] if split not in result_dataset_dict]
         assert not missing_splits, f"Missing required splits: {missing_splits}"
+
+        self.logger.log_event("Datasets Combined",
+                              dataset=[(split, len(result_dataset_dict[split]), round(sum(result_dataset_dict[split]["duration"])/3600, 2)) for split in
+                                       result_dataset_dict])
 
         return result_dataset_dict
 
@@ -437,7 +443,7 @@ class Wav2VecPipeline:
             ignore_data_skip=True,
             label_smoothing_factor=train_args.label_smoothing_factor,
             seed=self.config.seed,
-            save_total_limit=train_args.save_total_limit
+            save_total_limit=train_args.save_total_limit,
         )
 
     def train(self, dataset: DatasetDict):
@@ -466,7 +472,7 @@ class Wav2VecPipeline:
                 except Exception:
                     self.logger.log_event(f'Artifact not {artifact} found on WandB.', level="error")
 
-            self.logger.log_event("Setup Trainer")
+            self.logger.log_event("Setup Trainer", steps_per_epoch=dataset["train"].shape[0] // conf.train_args.batch_size)
 
             trainer = Trainer(
                 model=self.model,
