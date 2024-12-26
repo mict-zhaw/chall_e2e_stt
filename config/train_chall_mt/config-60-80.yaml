@@ -1,8 +1,8 @@
-# config-defaults-60-40.yaml
+# config-defaults-60-80.yaml
 
 experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
-  value: "60_40"
+  value: "60_80"
 
 train_corpora:
   desc: "Training corpora configurations"
@@ -14,10 +14,5 @@ train_corpora:
     - dataset: "data/chall_mt/processed/f5_synth_stt_dataset_v1"
       split: "train"
       load_from_disk: true
-      target_duration_hours: 40
+      target_duration_hours: 80
 
-train_args:
-  desc: "Training arguments for two gpus. 16*40*2=1280"
-  value:
-    batch_size: 16
-    gradient_accumulation_steps: 40
