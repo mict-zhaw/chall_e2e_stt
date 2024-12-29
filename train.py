@@ -222,10 +222,6 @@ class Wav2VecPipeline:
                 self.logger.log_event("Dataset Loaded", corpus=corpus_config.dataset,
                                       split=corpus_config.split, cumulative_duration=cumulative_duration, num_samples=len(ds))
 
-            print(corpus_config.split)
-            print(ds["audio_id"][:50])
-            print(ds["audio_id"][-50:])
-
             if isinstance(ds, Dataset):
                 ds = DatasetDict({corpus_config.split: ds})
             dataset_dict[corpus_config.dataset].update(ds)
@@ -244,11 +240,6 @@ class Wav2VecPipeline:
         })
 
         result_dataset_dict = result_dataset_dict.shuffle(seed=config.seed)
-
-        print(result_dataset_dict["train"]["audio_id"][:50])
-        print(result_dataset_dict["train"]["audio_id"][-50:])
-
-        # todo i am pretty sure that here a shuffle is missing...
 
         # Assert that the required splits exist
         missing_splits = [split for split in ["train", "eval"] if split not in result_dataset_dict]
