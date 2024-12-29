@@ -1,4 +1,4 @@
-# config-defaults-60-0.yaml
+# config-defaults-60-0-4gpus.yaml
 
 experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
