@@ -1,0 +1,24 @@
+# config-defaults-0-40-4gpus.yaml
+
+experiment_tag:
+  desc: "Tag for the experiment to differentiate configurations"
+  value: "0_40"
+
+train_corpora:
+  desc: "Training corpora configurations"
+  value:
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_v0"
+      split: "train"
+      load_from_disk: true
+      target_duration_hours: 0
+    - dataset: "data/chall_mt/processed/f5_synth_stt_dataset_v1"
+      split: "train"
+      load_from_disk: true
+      target_duration_hours: 40
+
+train_args:
+  desc: "Training arguments for 4 gpus. 18*18*4=1296"
+  value:
+    batch_size: 18
+    gradient_accumulation_steps: 18
+    learning_rate: 1e-4 # = 0.0001
