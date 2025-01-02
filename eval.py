@@ -67,7 +67,7 @@ class EvaluationPipeline:
 
         # Setup model paths
         self.model_path = str(os.path.join(config.alt_base_path, "models", config.checkpoint))
-        self.vocab_file = os.path.join(config.alt_base_path, "models", config.checkpoint, "..", 'vocab.json')
+        self.vocab_file = os.path.join(config.alt_base_path, "models", config.checkpoint, 'vocab.json')
 
         # Setup logging
         self.logging_path = str(os.path.join(self.config.alt_base_path, 'logs', "runs", config.group, config.job_type, config.experiment_label))
@@ -82,7 +82,7 @@ class EvaluationPipeline:
         """
 
         dataset = self.load_data(self.config.test_corpora)
-        dataset = dataset.select(range(10))  # todo
+        # dataset = dataset.select(range(10))
 
         self.tokenizer = self.create_tokenizer()
 
