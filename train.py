@@ -239,11 +239,26 @@ class Wav2VecPipeline:
             for split_name in {split for dataset_dict_entry in dataset_dict.values() for split in dataset_dict_entry.keys()}
         })
 
-        result_dataset_dict = result_dataset_dict.shuffle(seed=config.seed)
-
         # Assert that the required splits exist
         missing_splits = [split for split in ["train", "eval"] if split not in result_dataset_dict]
         assert not missing_splits, f"Missing required splits: {missing_splits}"
+
+        # Shuffle the data to mix synth and real data
+        result_dataset_dict["train"] = result_dataset_dict["train"].shuffle(seed=config.seed)
+        result_dataset_dict["eval"] = result_dataset_dict["eval"].shuffle(seed=config.seed)
+
+        # Rewrite the shuffled dataset on disk as contiguous chunks of data
+        train_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"train_{self.config.experiment_name}.arrow")
+        eval_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"eval_{self.config.experiment_name}.arrow")
+        os.makedirs(os.path.dirname(train_cache_file), exist_ok=True)
+        os.makedirs(os.path.dirname(eval_cache_file), exist_ok=True)
+        result_dataset_dict["train"] = result_dataset_dict["train"].flatten_indices(cache_file_name=train_cache_file)
+        result_dataset_dict["eval"] = result_dataset_dict["eval"].flatten_indices(cache_file_name=eval_cache_file)
+
+        # Remove unused cache files when working locally. Data on scratch is deleted anyway...
+        if self.env == "development":
+            removed = result_dataset_dict.cleanup_cache_files()
+            self.logger.log_event("Cleanup Cache Files", removed=removed)
 
         dataset_info = [(split, len(result_dataset_dict[split]), round(sum(result_dataset_dict[split]["duration"]) / 3600, 2)) for split in
                         result_dataset_dict]
@@ -346,13 +361,31 @@ class Wav2VecPipeline:
         remove_columns = dataset[next(iter(dataset))].column_names
 
         def _prepare_dataset(batch):
+            # print(f"Label: {batch.get(self.label_feature, 'MISSING')} for Audio ID: {batch.get('audio_id', 'unknown')}")
+
+            if not batch[self.label_feature].strip():
+                print("nicht gut")
+                print(f"Empty label found for audio ID: {batch['audio_id']}")
+                return None  # Exclude this example
+
             audio = batch["audio"]
             batch["input_length"] = len(audio["array"])
             # batched output is "un-batched" to ensure mapping is correct
             batch["input_values"] = self.processor(audio["array"], sampling_rate=audio["sampling_rate"]).input_values[0]
             with self.processor.as_target_processor():
                 batch["labels"] = self.processor(batch[self.label_feature]).input_ids
+
+            if len(batch["labels"]) == 0:
+                print(f"Label: {batch['labels']}")
+
+            # Check if labels were successfully set
+            if not batch.get("labels"):
+                print(f"Labels not set for audio ID: {batch.get('audio_id', 'unknown')}. Label content: {batch.get(self.label_feature, 'MISSING')}")
+
             return batch
+
+        print(f"Dataset columns: {dataset.column_names}")
+        print(f"Label Feature: {self.label_feature}")
 
         # Do data preparation on the first process and load from cache in other
         with self.accelerator.main_process_first():
