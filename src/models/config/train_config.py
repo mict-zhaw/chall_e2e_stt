@@ -49,6 +49,10 @@ class CorpusConfig(BaseModel):
         "clear_text",
         description="Name of the text column."
     )
+    raw_text_column: str = Field(
+        "raw_text",
+        description="Name of the text column."
+    )
     id_column: str = Field(
         "audio_id",
         description="Name of the id column."
