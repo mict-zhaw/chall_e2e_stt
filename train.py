@@ -248,8 +248,8 @@ class Wav2VecPipeline:
         result_dataset_dict["eval"] = result_dataset_dict["eval"].shuffle(seed=config.seed)
 
         # Rewrite the shuffled dataset on disk as contiguous chunks of data
-        train_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"train_{self.config.experiment_name}.arrow")
-        eval_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"eval_{self.config.experiment_name}.arrow")
+        train_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"train_{self.config.experiment_label}.arrow")
+        eval_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"eval_{self.config.experiment_label}.arrow")
         os.makedirs(os.path.dirname(train_cache_file), exist_ok=True)
         os.makedirs(os.path.dirname(eval_cache_file), exist_ok=True)
         result_dataset_dict["train"] = result_dataset_dict["train"].flatten_indices(cache_file_name=train_cache_file)
