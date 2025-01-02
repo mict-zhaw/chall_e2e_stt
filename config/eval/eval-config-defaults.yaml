@@ -1,10 +1,10 @@
 experiment_name:
   desc: "Name of the experiment"
-  value: "debug_eval"
+  value: "evaluation"
 
 experiment_tag:
   desc: "Tag for identifying the experiment setup"
-  value: "1"
+  value: "debug"
 
 test_corpora:
   desc: "List of test corpora and their configurations"
@@ -20,30 +20,6 @@ device:
 checkpoint:
   desc: "Path to the model checkpoint to be used"
   value: "train/train_diff_data_portions/chall_mt_train_60_60/checkpoint-2700"
-
-eval_batch_size:
-  desc: "Batch size for evaluation"
-  value: 8
-
-eval_beam_size:
-  desc: "Beam size for evaluation"
-  value: 100
-
-lm_alpha:
-  desc: "Language model alpha parameter"
-  value: 0.5
-
-lm_beta:
-  desc: "Language model beta parameter"
-  value: 1.5
-
-bf16:
-  desc: "Use bf16 precision"
-  value: false
-
-fp16:
-  desc: "Use fp16 precision"
-  value: true
 
 seed:
   desc: "Random seed for reproducibility"

@@ -14,12 +14,12 @@ class EvalConfig(BaseConfig):
     """
 
     job_type: str = Field(
-        default_factory=lambda: os.getenv("JOB_TYPE", "train_diff_data_portions"),
+        default_factory=lambda: os.getenv("JOB_TYPE", "eval"),
         description="Specify the type of run, which is useful when you're grouping runs together."
     )
 
     group: str = Field(
-        default_factory=lambda: os.getenv("GROUP", "train"),
+        default_factory=lambda: os.getenv("GROUP", "evaluation"),
         description="Specify a group to organize individual runs into a larger experiment."
     )
 
