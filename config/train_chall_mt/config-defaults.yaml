@@ -16,10 +16,6 @@ device:
   desc: "Device to run the training on, e.g., 'cuda' or 'cpu'"
   value: "cuda"
 
-train_corpora:
-  desc: "Training corpora configurations. Overwrite in a specific configuration."
-  value: null
-
 eval_corpora:
   desc: "Evaluation corpora configurations"
   value:
