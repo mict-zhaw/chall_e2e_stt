@@ -87,9 +87,13 @@ class TrainArgs(BaseModel):
     """
     Arguments for training configuration
     """
-    n_steps: int = Field(
+    num_train_epochs: int = Field(
         default=250,
         description="Number of training steps."
+    )
+    max_steps: int = Field(
+        default=-1,
+        description="If set to a positive number, the total number of training steps to perform. Overrides num_train_epochs. For a finite dataset, training is reiterated through the dataset (if all data is exhausted) until max_steps is reached."
     )
     batch_size: int = Field(
         default=8,

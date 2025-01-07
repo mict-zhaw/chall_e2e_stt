@@ -34,12 +34,13 @@ checkpoint:
 train_args:
   desc: "Training arguments"
   value:
-    n_steps: 250
-    batch_size: 16
+    num_train_epochs: 250
+    max_steps: 1800
+    batch_size: 17
+    gradient_accumulation_steps: 19
     eval_batch_size: 1
-    gradient_accumulation_steps: 80
     gradient_checkpointing: false
-    learning_rate: 3e-5 # = 0.00003
+    learning_rate: 1e-4 # = 0.0001
     warmup_steps: 400
     label_smoothing_factor: 0.0
     fp16: false
