@@ -1,4 +1,4 @@
-# config-defaults-60-0-4gpus.yaml
+# config-defaults-60-0.yaml
 
 experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
@@ -15,10 +15,3 @@ train_corpora:
       split: "train"
       load_from_disk: true
       target_duration_hours: 0
-
-train_args:
-  desc: "Training arguments for 4 gpus. 18*18*4=1296"
-  value:
-    batch_size: 18
-    gradient_accumulation_steps: 18
-    learning_rate: 1e-4 # = 0.0001
