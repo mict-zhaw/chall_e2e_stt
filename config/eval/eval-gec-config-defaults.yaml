@@ -1,15 +1,15 @@
 experiment_name:
   desc: "Name of the experiment"
-  value: "evaluation_real"
+  value: "evaluation"
 
 experiment_tag:
   desc: "Tag for identifying the experiment setup"
-  value: "real"
+  value: "debug"
 
 test_corpora:
   desc: "List of test corpora and their configurations"
   value:
-    - dataset: "data/chall_mt/unprocessed/chall_dataset_v0"
+    - dataset: "data/test/test_v0"
       split: "test"
       load_from_disk: true
 

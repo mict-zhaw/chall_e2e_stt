@@ -1,10 +1,10 @@
 experiment_name:
   desc: "Name of the experiment"
-  value: "evaluation_real"
+  value: "evaluation"
 
 experiment_tag:
   desc: "Tag for identifying the experiment setup"
-  value: "real"
+  value: "debug"
 
 test_corpora:
   desc: "List of test corpora and their configurations"
