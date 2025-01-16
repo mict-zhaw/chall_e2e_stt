@@ -2,7 +2,7 @@
 
 experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
-  value: "0_80"
+  value: "0_80__2"
 
 train_corpora:
   desc: "Training corpora configurations"
