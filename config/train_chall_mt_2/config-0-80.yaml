@@ -15,3 +15,10 @@ train_corpora:
       split: "train"
       load_from_disk: true
       target_duration_hours: 80
+
+eval_corpora:
+  desc: "Evaluation corpora configurations"
+  value:
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_second_split_v0"
+      split: "eval"
+      load_from_disk: true
