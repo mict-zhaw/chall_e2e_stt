@@ -76,7 +76,20 @@ class EvalConfig(BaseConfig):
         description="Does not make sense here"
     )
 
+    wandb_offline: bool = Field(
+        default=False,
+        description="Whether to log results on wandb."
+    )
 
+    test_num_samples: Optional[int] = Field(
+        default=None,
+        description="Number of samples to be used for testing."
+    )
+
+    wepr: bool = Field(
+        default=True,
+        description="description to calculate WEPR"
+    )
 
     @property
     def experiment_label(self):
