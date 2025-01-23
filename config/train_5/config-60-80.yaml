@@ -1,0 +1,30 @@
+# config-defaults-60-80.yaml
+
+experiment_tag:
+  desc: "Tag for the experiment to differentiate configurations"
+  value: "60_80__5"
+
+train_corpora:
+  desc: "Training corpora configurations"
+  value:
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_second_split_v0"
+      split: "train"
+      load_from_disk: true
+      target_duration_hours: 60
+    - dataset: "data/chall_mt/processed/f5_synth_stt_dataset_v1"
+      split: "train"
+      load_from_disk: true
+      target_duration_hours: 80
+
+eval_corpora:
+  desc: "Evaluation corpora configurations"
+  value:
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_second_split_v0"
+      split: "eval"
+      load_from_disk: true
+
+train_args:
+  desc: "Training arguments"
+  value:
+    num_train_epochs: 150
+    max_steps: -1
