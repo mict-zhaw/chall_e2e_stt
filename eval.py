@@ -4,6 +4,8 @@ import os
 import random
 from typing import List, Union
 
+from src.data_collator.data_collator import DataCollatorCTCWithPadding
+
 collections.Iterable = collections.abc.Iterable  # used to prevent error in alignment tool
 from alignment_tool.alignment.extensions.annotation_mutation_evaluation import AnnotationEvaluation
 
@@ -25,6 +27,7 @@ wer_metric = load("wer")
 cer_metric = load("cer")
 
 _DEFAULT_ENV = "development"
+
 
 class EvaluationPipeline:
     """
@@ -67,7 +70,10 @@ class EvaluationPipeline:
 
         # Setup model paths
         self.model_path = str(os.path.join(config.alt_base_path, "models", config.checkpoint))
-        self.vocab_file = os.path.join(config.alt_base_path, "models", config.checkpoint, 'vocab.json')
+        self.vocab_file = os.path.join(config.alt_base_path, "models", config.checkpoint, '..', 'vocab.json')
+
+        print(self.model_path)
+        print(self.vocab_file)
 
         # Setup logging
         self.logging_path = str(os.path.join(self.config.alt_base_path, 'logs', "runs", config.group, config.job_type, config.experiment_label))
@@ -76,13 +82,14 @@ class EvaluationPipeline:
         self.logger = TrainLogger(self.logging_path)
         self.config.to_json(self.logging_path)
 
-    def run(self, log_wandb: bool = False):
+    def run(self):
         """
         Runs the evaluation
         """
 
         dataset = self.load_data(self.config.test_corpora)
-        # dataset = dataset.select(range(10))
+        if self.config.test_num_samples:
+            dataset = dataset.select(range(self.config.test_num_samples))
 
         self.tokenizer = self.create_tokenizer()
 
@@ -91,7 +98,7 @@ class EvaluationPipeline:
 
         dataset = self.prepare_dataset(dataset)
 
-        if not log_wandb:
+        if self.config.wandb_offline:
             self.evaluate(dataset, self.processor, self.model)
         else:
             import wandb
@@ -173,9 +180,11 @@ class EvaluationPipeline:
         self.logger.log_event("Create Tokenizer", unk_token=unk_token, pad_token=pad_token, word_delimiter_token=word_delimiter_token)
         assert os.path.exists(self.vocab_file), f"Vocabulary file not found at {self.vocab_file}"
 
-        tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_path)
-        tokenizer.add_special_tokens({'pad_token': pad_token, 'unk_token': unk_token})
-        return tokenizer
+        decoder_tokenizer = Wav2Vec2CTCTokenizer(self.vocab_file, unk_token=unk_token, pad_token=pad_token, word_delimiter_token=word_delimiter_token)
+        # tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_path)
+        # tokenizer.add_special_tokens({'pad_token': pad_token, 'unk_token': unk_token})
+        decoder_tokenizer.add_special_tokens({'pad_token': pad_token, 'unk_token': unk_token})
+        return decoder_tokenizer
 
     def create_processor(self, feature_size: int = 1, sampling_rate: int = 16_000, lm_path: str = None) \
             -> Union[Wav2Vec2Processor, Wav2Vec2ProcessorWithLM]:
@@ -216,7 +225,7 @@ class EvaluationPipeline:
                 decoder=language_model_decoder
             )
         else:
-            return Wav2Vec2Processor.from_pretrained(self.model_path, tokenizer=self.tokenizer)
+            return Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=self.tokenizer)
 
     def _get_model(self) -> Wav2Vec2ForCTC:
         """
@@ -228,7 +237,17 @@ class EvaluationPipeline:
         assert self.processor, "No processor"
         self.logger.log_event("Load Model", model_path=self.model_path)
 
-        model = Wav2Vec2ForCTC.from_pretrained(self.model_path)
+        model = Wav2Vec2ForCTC.from_pretrained(
+            self.model_path,
+            # attention_dropout=0.1,
+            # hidden_dropout=0.1,
+            # feat_proj_dropout=0.0,
+            # mask_time_prob=0.05,
+            # layerdrop=0.1,
+            ctc_loss_reduction="mean",
+            pad_token_id=self.processor.tokenizer.pad_token_id,
+            vocab_size=len(self.processor.tokenizer)
+        )
         model.config.ctc_zero_infinity = True
         model.freeze_feature_encoder()
         model.to(self.config.device)
@@ -297,24 +316,50 @@ class EvaluationPipeline:
             with open(log_file_path, 'a') as log_file:
                 log_file.write(message + '\n')
 
+        data_collator = DataCollatorCTCWithPadding(processor=processor, padding=True)
+
+        eval_beam_size = 1
+
+        def map_to_result_batch(batch):
+            with torch.no_grad():
+
+                prepared_batch = data_collator(
+                    [dict(zip(batch.keys(), values)) for values in zip(*batch.values())]
+                )
+
+                # Move input values to the appropriate device
+                input_values = prepared_batch["input_values"].to(self.config.device)
+                logits = model(input_values).logits
+
+                if eval_beam_size > 1:
+                    print("beam decoding")
+
+                # Greedy decoding (can replace with beam search later)
+                pred_ids = torch.argmax(logits, dim=-1)
+
+                # Decode predictions and labels
+                batch["pred_str"] = processor.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=False)
+
+
+                batch["label_str"] = processor.batch_decode(prepared_batch["labels"], group_tokens=False, skip_special_tokens=True)
+                batch["raw_label_str"] = batch.get("raw_labels", "")
+            return batch
+
         def map_to_result(batch):
             with torch.no_grad():
                 input_values = torch.tensor(batch["input_values"], device=self.config.device).unsqueeze(0)
                 logits = model(input_values).logits
-
-            pred_ids = torch.argmax(logits, dim=-1)
-            batch["pred_str"] = processor.batch_decode(pred_ids, skip_special_tokens=True)[0]
-            batch["label_str"] = processor.decode(batch["labels"], group_tokens=False)
-            batch["raw_label_str"] = batch["raw_labels"]
+                pred_ids = torch.argmax(logits, dim=-1)
+                # Decode predictions and labels
+                batch["pred_str"] = processor.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=False)[0]
+                batch["label_str"] = processor.decode(batch["labels"], group_tokens=False, skip_special_tokens=True)
+                batch["raw_label_str"] = batch.get("raw_labels", "")
             return batch
 
-        results = dataset.map(map_to_result, remove_columns=dataset.column_names)
-
-        # Calculate Error Preservation
-        annot_eval = AnnotationEvaluation(references=results["raw_label_str"], list_of_predictions=[results["pred_str"]], symbols=["@!"])
-        wepr_score = annot_eval.calculate_aer()
-
-        # todo is this correct. calculate few examples by hand!!!
+        if False: # use batched
+            results = dataset.map(map_to_result_batch, remove_columns=dataset.column_names, batch_size=4, batched=True)
+        else:
+            results = dataset.map(map_to_result, remove_columns=dataset.column_names)
 
         # Calculate standard metrics
         wer_score = wer_metric.compute(predictions=results["pred_str"], references=results["label_str"])
@@ -322,34 +367,54 @@ class EvaluationPipeline:
         bleu_score = bleu_metric(predictions=results["pred_str"], references=results["label_str"])
         chrf_score = chrf_metric(predictions=results["pred_str"], references=results["label_str"])
 
-        # Log metrics to file
+        # Log standard metrics
         log_to_file("Test WER: {:.3f}".format(wer_score))
         log_to_file("Test CER: {:.3f}".format(cer_score))
         log_to_file("Test Bleu: {:.3f}".format(bleu_score))
         log_to_file("Test ChrF: {:.3f}".format(chrf_score))
-        log_to_file("Test WEPR: {:.3f}".format(wepr_score))
 
-        log_to_file("Correct Words: {}".format(annot_eval.correct_words))
-        log_to_file("Substitutions: {}".format(annot_eval.substitutions))
-        log_to_file("Insertions: {}".format(annot_eval.insertions))
-        log_to_file("Deletions: {}".format(annot_eval.deletions))
-        log_to_file("Reference Words: {}".format(annot_eval.reference_words))
+        # Save predictions and labels to a CSV file
+        with open(os.path.join(self.logging_path, 'predictions.csv'), 'w') as csv_file:
+            import csv
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(["Raw Label", "Label", "Prediction"])
+            for raw, pred, label in zip(results["raw_label_str"], results["label_str"], results["pred_str"]):
+                csv_writer.writerow([raw, pred, label])
 
-        # Save alignment to JSON file
-        with open(os.path.join(self.logging_path, 'alignment_result.json'), 'w') as json_file:
-            json.dump(annot_eval.alignment_result, json_file)
+        wepr_result_dict = {}
+        if config.wepr:
+            # Calculate Error Preservation
+            annot_eval = AnnotationEvaluation(references=results["raw_label_str"], list_of_predictions=[results["pred_str"]], symbols=["@!"],
+                                              num_threads=5)
+            wepr_score = annot_eval.calculate_aer()  # todo is this correct. calculate few examples by hand!!!
+
+            # Log error preservation metrics and infos
+            log_to_file("Test WEPR: {:.3f}".format(wepr_score))
+            log_to_file("Correct Words: {}".format(annot_eval.correct_words))
+            log_to_file("Substitutions: {}".format(annot_eval.substitutions))
+            log_to_file("Insertions: {}".format(annot_eval.insertions))
+            log_to_file("Deletions: {}".format(annot_eval.deletions))
+            log_to_file("Reference Words: {}".format(annot_eval.reference_words))
+
+            # Save alignment to JSON file
+            with open(os.path.join(self.logging_path, 'alignment_result.json'), 'w') as json_file:
+                json.dump(annot_eval.alignment_result, json_file)
+
+            wepr_result_dict = {
+                'wepr': wepr_score,
+                'correct_words': annot_eval.correct_words,
+                'substitutions': annot_eval.substitutions,
+                'insertions': annot_eval.insertions,
+                'deletions': annot_eval.deletions,
+                'reference_words': annot_eval.reference_words,
+            }
 
         return {
             'bleu': bleu_score,
             'wer': wer_score,
             'cer': cer_score,
             'chrf': chrf_score,
-            'wepr': wepr_score,
-            'correct_words': annot_eval.correct_words,
-            'substitutions': annot_eval.substitutions,
-            'insertions': annot_eval.insertions,
-            'deletions': annot_eval.deletions,
-            'reference_words': annot_eval.reference_words,
+            **wepr_result_dict
         }
 
 
@@ -359,11 +424,13 @@ if __name__ == '__main__':
 
     if env == 'development':
         from dotenv import load_dotenv
+
         load_dotenv()
         print("Load .env")
 
     # Combine configs to use defaults and experiment-specific configs
     config = EvalConfig.from_cli()
-    pipeline = EvaluationPipeline(config=config, env=env)
-    pipeline.run(log_wandb=True)
+    print(config.model_dump())
 
+    pipeline = EvaluationPipeline(config=config, env=env)
+    pipeline.run()

@@ -1,18 +1,17 @@
 experiment_name:
   desc: "Name of the experiment"
-  value: "evaluation_synth"
+  value: "evaluation_real"
 
 experiment_tag:
   desc: "Tag for identifying the experiment setup"
-  value: "debug"
+  value: "real"
 
 test_corpora:
   desc: "List of test corpora and their configurations"
   value:
-    - dataset: "data/chall_mt/processed/f5_synth_stt_dataset_test_v0"
-      split: "train"
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_second_split_v0"
+      split: "test"
       load_from_disk: true
-      raw_text_column: "text"
 
 device:
   desc: "Device to run the experiment on (e.g., CPU, CUDA)"
@@ -20,12 +19,8 @@ device:
 
 checkpoint:
   desc: "Path to the model checkpoint to be used"
-  value: ""
+  value: "train/train_diff_data_portions/chall_mt_train_60_60/checkpoint-2700"
 
 seed:
   desc: "Random seed for reproducibility"
   value: 123
-
-wepr:
-  desc: "Dont calculate wepr on synth data."
-  value: False
