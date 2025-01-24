@@ -28,5 +28,5 @@ train_args:
   value:
     num_train_epochs: 150
     max_steps: -1
-    batch_size: 64
+    batch_size: 62
     gradient_accumulation_steps: 10
