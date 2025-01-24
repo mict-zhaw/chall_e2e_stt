@@ -1,4 +1,4 @@
-# config-defaults-0-40hp.yaml
+# config-defaults-0-40.yaml
 
 experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
@@ -28,5 +28,3 @@ train_args:
   value:
     num_train_epochs: 150
     max_steps: -1
-    batch_size: 62
-    gradient_accumulation_steps: 10
