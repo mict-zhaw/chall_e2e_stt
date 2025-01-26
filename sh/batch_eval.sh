@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ./sh/batch_eval.sh -e false -s "best-checkpoint-0" -b "train/train_5/chall_mt_train" -g "eval_train_5"
+# ./sh/batch_eval.sh -e false -s "best-checkpoint-0" -b "train/train_4/chall_mt_train" -g "eval_train_4_best_beam100"
 # ./sh/batch_eval.sh -e false -s "checkpoint-1800" -b "train/train_4/chall_mt_train" -g "eval_split2_1800"
 
 # ./sh/batch_eval.sh -e true -s "best-checkpoint-0" -b "train/train_/chall_mt_train" -g "eval_split2"
@@ -11,7 +11,7 @@
 EXECUTE_MODE=false
 CHECKPOINT_SUFFIX="best-checkpoint-0"
 CHECKPOINT_BASE="train/train_4/chall_mt_train"
-ALT_BASE_PATH="../chall_mt/models/"
+ALT_BASE_PATH="/home/ubuntu/chall_mt/chall_e2e_stt/models/"
 GROUP="eval"  # Default group
 
 # Base configuration
@@ -54,7 +54,7 @@ run_evaluations() {
 
   for synth in "${SYNTH_DATA_VALUES[@]}"; do
     experiment_tag="${prefix}_${real}_${synth}"
-    checkpoint="${CHECKPOINT_BASE}_${real}_${synth}__5/${CHECKPOINT_SUFFIX}"
+    checkpoint="${CHECKPOINT_BASE}_${real}_${synth}__2/${CHECKPOINT_SUFFIX}"
     alt_checkpoint="${ALT_BASE_PATH}${checkpoint}"
 
     if [[ -d "$alt_checkpoint" ]]; then
@@ -75,6 +75,6 @@ for real in "${REAL_DATA_VALUES[@]}"; do
 done
 
 # Run Synth Evaluations
-for real in "${REAL_DATA_VALUES[@]}"; do
-  run_evaluations "$CONFIG_SYNTH" "$PREFIX_SYNTH" "$real"
-done
+#for real in "${REAL_DATA_VALUES[@]}"; do
+#  run_evaluations "$CONFIG_SYNTH" "$PREFIX_SYNTH" "$real"
+#done

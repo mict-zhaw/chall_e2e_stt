@@ -63,6 +63,10 @@ class EvalConfig(BaseConfig):
         default=None,
         description=""
     )
+    eval_beam_size: int = Field(
+        default=1,
+        description=""
+    )
     lm_alpha: float = Field(
         default=0.5,
         description=""
@@ -89,6 +93,10 @@ class EvalConfig(BaseConfig):
     wepr: bool = Field(
         default=True,
         description="description to calculate WEPR"
+    )
+
+    eval_batch_size: int = Field(
+        default=1
     )
 
     @property

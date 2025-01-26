@@ -24,3 +24,11 @@ checkpoint:
 seed:
   desc: "Random seed for reproducibility"
   value: 123
+
+eval_batch_size:
+  desc: ""
+  value: 4
+
+eval_beam_size:
+  desc: ""
+  value: 100

@@ -82,6 +82,8 @@ class EvaluationPipeline:
         self.logger = TrainLogger(self.logging_path)
         self.config.to_json(self.logging_path)
 
+        self.lm_processor = None
+
     def run(self):
         """
         Runs the evaluation
@@ -186,8 +188,7 @@ class EvaluationPipeline:
         decoder_tokenizer.add_special_tokens({'pad_token': pad_token, 'unk_token': unk_token})
         return decoder_tokenizer
 
-    def create_processor(self, feature_size: int = 1, sampling_rate: int = 16_000, lm_path: str = None) \
-            -> Union[Wav2Vec2Processor, Wav2Vec2ProcessorWithLM]:
+    def create_processor(self, feature_size: int = 1, sampling_rate: int = 16_000, lm_path: str = None) -> Wav2Vec2Processor:
         """
         Create processor from the saved Wav2Vec2 model.
 
@@ -205,7 +206,7 @@ class EvaluationPipeline:
             return_attention_mask=True
         )
 
-        if lm_path:
+        if self.config.eval_beam_size > 1:
             vocab_dict = self.tokenizer.get_vocab()
             sorted_dict = {k: v for k, v in sorted(vocab_dict.items(), key=lambda item: item[1])}
             sorted_dict_keys = list(sorted_dict.keys())
@@ -219,13 +220,13 @@ class EvaluationPipeline:
                 beta=self.config.lm_beta
             )
 
-            return Wav2Vec2ProcessorWithLM(
+            self.lm_processor = Wav2Vec2ProcessorWithLM(
                 tokenizer=self.tokenizer,
                 feature_extractor=feature_extractor,
                 decoder=language_model_decoder
             )
-        else:
-            return Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=self.tokenizer)
+
+        return Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=self.tokenizer)
 
     def _get_model(self) -> Wav2Vec2ForCTC:
         """
@@ -318,8 +319,6 @@ class EvaluationPipeline:
 
         data_collator = DataCollatorCTCWithPadding(processor=processor, padding=True)
 
-        eval_beam_size = 1
-
         def map_to_result_batch(batch):
             with torch.no_grad():
 
@@ -331,16 +330,20 @@ class EvaluationPipeline:
                 input_values = prepared_batch["input_values"].to(self.config.device)
                 logits = model(input_values).logits
 
-                if eval_beam_size > 1:
-                    print("beam decoding")
-
-                # Greedy decoding (can replace with beam search later)
-                pred_ids = torch.argmax(logits, dim=-1)
+                if self.config.eval_beam_size > 1 and self.lm_processor:
+                    output = self.lm_processor.batch_decode(
+                        logits.double().cpu().numpy(),
+                        beam_width=self.config.eval_beam_size,
+                        num_processes=1,
+                        output_word_offsets=True
+                    )
+                    pred_str_batch = output.text
+                else:
+                    pred_ids = torch.argmax(logits, dim=-1)
+                    pred_str_batch = processor.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=False)
 
                 # Decode predictions and labels
-                batch["pred_str"] = processor.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=False)
-
-
+                batch["pred_str"] = pred_str_batch
                 batch["label_str"] = processor.batch_decode(prepared_batch["labels"], group_tokens=False, skip_special_tokens=True)
                 batch["raw_label_str"] = batch.get("raw_labels", "")
             return batch
@@ -349,15 +352,29 @@ class EvaluationPipeline:
             with torch.no_grad():
                 input_values = torch.tensor(batch["input_values"], device=self.config.device).unsqueeze(0)
                 logits = model(input_values).logits
-                pred_ids = torch.argmax(logits, dim=-1)
+
+                if self.config.eval_beam_size > 1 and self.lm_processor:
+                    output = self.lm_processor.batch_decode(
+                        logits.double().cpu().numpy(),
+                        beam_width=self.config.eval_beam_size,
+                        num_processes=1,
+                        output_word_offsets=True
+                    )
+
+                    pred_str_batch = output.text[0]
+                else:
+                    pred_ids = torch.argmax(logits, dim=-1)
+                    pred_str_batch = processor.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=False)[0]
+
                 # Decode predictions and labels
-                batch["pred_str"] = processor.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=False)[0]
+                batch["pred_str"] = pred_str_batch
                 batch["label_str"] = processor.decode(batch["labels"], group_tokens=False, skip_special_tokens=True)
                 batch["raw_label_str"] = batch.get("raw_labels", "")
             return batch
 
-        if False: # use batched
-            results = dataset.map(map_to_result_batch, remove_columns=dataset.column_names, batch_size=4, batched=True)
+        if self.config.eval_batch_size > 1:
+            results = dataset.map(map_to_result_batch, remove_columns=dataset.column_names,
+                                  batch_size=self.config.eval_batch_size, batched=True)
         else:
             results = dataset.map(map_to_result, remove_columns=dataset.column_names)
 
