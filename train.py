@@ -252,8 +252,8 @@ class Wav2VecPipeline:
         eval_cache_file = os.path.join(self.cache_dir, "load_data", self.config.experiment_name, f"eval_{self.config.experiment_label}.arrow")
         os.makedirs(os.path.dirname(train_cache_file), exist_ok=True)
         os.makedirs(os.path.dirname(eval_cache_file), exist_ok=True)
-        result_dataset_dict["train"] = result_dataset_dict["train"].flatten_indices(cache_file_name=train_cache_file)
-        result_dataset_dict["eval"] = result_dataset_dict["eval"].flatten_indices(cache_file_name=eval_cache_file)
+        result_dataset_dict["train"] = result_dataset_dict["train"].select(range(100)).flatten_indices(cache_file_name=train_cache_file)
+        result_dataset_dict["eval"] = result_dataset_dict["eval"].select(range(100)).flatten_indices(cache_file_name=eval_cache_file)
 
         # Remove unused cache files when working locally. Data on scratch is deleted anyway...
         if self.env == "development":
@@ -389,7 +389,7 @@ class Wav2VecPipeline:
 
         # Do data preparation on the first process and load from cache in other
         with self.accelerator.main_process_first():
-            dataset = dataset.map(_prepare_dataset, remove_columns=remove_columns, num_proc=4, load_from_cache_file=True)
+            dataset = dataset.map(_prepare_dataset, remove_columns=remove_columns, num_proc=1, load_from_cache_file=True)
 
         self.logger.log_event("Data Prepared")
         return dataset
@@ -523,7 +523,7 @@ class Wav2VecPipeline:
             self.logger.log_event("Start Trainer")
 
             ignore_keys_for_eval = ['past_key_values', 'encoder_last_hidden_state', 'hidden_states', 'cross_attentions']
-            train_res = trainer.train(resume_from_checkpoint=False, ignore_keys_for_eval=ignore_keys_for_eval)
+            train_res = trainer.train(resume_from_checkpoint=self.config.resume, ignore_keys_for_eval=ignore_keys_for_eval)
 
             self.logger.log_event("Train End", train_res=train_res)
 
@@ -546,8 +546,8 @@ class Wav2VecPipeline:
 
         pred.label_ids[pred.label_ids == -100] = self.tokenizer.pad_token_id
 
-        pred_strs = self.tokenizer.batch_decode(pred_ids, group_tokens=True)
-        label_strs = self.tokenizer.batch_decode(pred.label_ids, group_tokens=False)  # we do not want to group tokens when computing the metrics
+        pred_strs = self.tokenizer.batch_decode(pred_ids, group_tokens=True, skip_special_tokens=True)
+        label_strs = self.tokenizer.batch_decode(pred.label_ids, group_tokens=True, skip_special_tokens=True)  # we do not want to group tokens when computing the metrics
 
         # Check if pred_strs or label_strs are empty
         if not pred_strs:
