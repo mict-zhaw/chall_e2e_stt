@@ -32,8 +32,8 @@ train_args:
   value:
     num_train_epochs: 150
     max_steps: -1
-    batch_size: 28
-    gradient_accumulation_steps: 23
+    batch_size: 30
+    gradient_accumulation_steps: 21
 
 wav2vec_base_model:
   desc: "Model to be fine tuned"
