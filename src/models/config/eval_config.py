@@ -99,6 +99,10 @@ class EvalConfig(BaseConfig):
         default=1
     )
 
+    min_word_count: int = Field(
+        default=1
+    )
+
     @property
     def experiment_label(self):
         return f'{self.experiment_name}_{self.experiment_tag}'
