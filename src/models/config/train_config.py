@@ -238,6 +238,10 @@ class TrainConfig(BaseModel):
         description="Arguments specific to the training process."
     )
 
+    resume: bool = Field(
+        default=False
+    )
+
     @property
     def experiment_label(self):
         return f'{self.experiment_name}_{self.experiment_tag}'
