@@ -285,6 +285,13 @@ class EvaluationPipeline:
         self.logger.log_event("Prepare Data")
         remove_columns = dataset.column_names
 
+        # Add filtering to only keep samples with at least 2 words
+        def filter_by_word_count(batch):
+            return len(batch[self.raw_label_feature].split()) >= self.config.min_word_count
+
+        # Apply filtering
+        dataset = dataset.filter(filter_by_word_count, num_proc=1)
+
         def _prepare_dataset(batch):
             audio = batch["audio"]
             batch["input_values"] = self.processor(audio["array"], sampling_rate=audio["sampling_rate"]).input_values[0]

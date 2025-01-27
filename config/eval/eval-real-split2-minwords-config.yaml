@@ -9,13 +9,9 @@ experiment_tag:
 test_corpora:
   desc: "List of test corpora and their configurations"
   value:
-    - dataset: "data/chall_mt/unprocessed/chall_dataset_v0"
-      split: "eval"
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_second_split_v0"
+      split: "test"
       load_from_disk: true
-
-device:
-  desc: "Device to run the experiment on (e.g., CPU, CUDA)"
-  value: "cuda"
 
 checkpoint:
   desc: "Path to the model checkpoint to be used"
@@ -24,3 +20,15 @@ checkpoint:
 seed:
   desc: "Random seed for reproducibility"
   value: 123
+
+eval_batch_size:
+  desc: ""
+  value: 4
+
+eval_beam_size:
+  desc: ""
+  value: 100
+
+min_word_count:
+  desc: "Min number of words per sample. Make evaluation on samples with at least 3 words."
+  value: 3
