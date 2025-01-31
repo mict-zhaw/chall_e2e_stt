@@ -4,10 +4,6 @@ experiment_tag:
   desc: "Tag for the experiment to differentiate configurations"
   value: "60_80__5"
 
-job_type:
-  desc: ""
-  value: "train_5"
-
 train_corpora:
   desc: "Training corpora configurations"
   value:
@@ -32,3 +28,11 @@ train_args:
   value:
     num_train_epochs: 150
     max_steps: -1
+    validation_freq: 1
+    batch_size: 1
+    gradient_accumulation_steps: 1
+    eval_batch_size: 1
+
+wav2vec_base_model:
+  desc: "Desc"
+  value: "../chall_mt/models/train/train_5/chall_mt_train_60_80__5/best-checkpoint-0"

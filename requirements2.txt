@@ -1,0 +1,13 @@
+torch
+torchvision
+torchaudio
+transformers==4.46.0
+datasets
+evaluate
+jiwer
+sacrebleu
+scikit-learn
+pandas
+accelerate
+num2words
+nltk
