@@ -6,7 +6,6 @@ import string
 from typing import List, Union
 import re
 
-
 collections.Iterable = collections.abc.Iterable  # used to prevent error in alignment tool
 from alignment_tool.alignment.extensions.annotation_mutation_evaluation import AnnotationEvaluation
 
@@ -48,10 +47,12 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device)
 
 
-def preprocess_text(text):
+def preprocess_text(o_text):
+    text = o_text.replace("@!", "").replace("@?", "").replace("@g", "")
     text = text.lower().replace("__", "").replace("  ", " ")
     text = '. '.join(s.strip().capitalize() for s in text.split('.'))
-    return text + "."
+    text = text.strip()
+    return text
 
 
 def errant_annotate_corrections(text, corrections):
@@ -66,7 +67,6 @@ def errant_annotate_corrections(text, corrections):
 
 
 def grammatical_error_correction_with_props(input_sentence, num_return_sequences=5):
-
     # Tokenize input and move to GPU
     input_ids = tokenizer(f"grammar: {input_sentence}", return_tensors="pt").input_ids.to(device)
 
@@ -259,15 +259,15 @@ class EvaluationPipeline:
         """
 
         dataset = self.load_data(self.config.test_corpora)
-        if self.config.test_num_samples:
-            dataset = dataset.select(range(self.config.test_num_samples))
-
         self.tokenizer = self.create_tokenizer()
 
         self.processor = self.create_processor(lm_path=self._load_language_model())
         self.model = self._get_model()
 
         dataset = self.prepare_dataset(dataset)
+
+        if self.config.test_num_samples:
+            dataset = dataset.select(range(self.config.test_num_samples))
 
         if self.config.wandb_offline:
             results = self.evaluate(dataset, self.processor, self.model)
@@ -461,11 +461,16 @@ class EvaluationPipeline:
         self.logger.log_event("Prepare Data")
         remove_columns = ["audio"]
 
+        # Apply filtering
+        def filter_by_uzh(batch):
+            return batch["audio_id"] in ds_index_map
+
+        dataset = dataset.filter(filter_by_uzh, num_proc=1)
+
         # Add filtering to only keep samples with at least 2 words
         def filter_by_word_count(batch):
             return len(batch[self.raw_label_feature].split()) >= self.config.min_word_count
 
-        # Apply filtering
         dataset = dataset.filter(filter_by_word_count, num_proc=1)
 
         def _prepare_dataset(batch):
@@ -527,7 +532,8 @@ class EvaluationPipeline:
 
                 # Decode predictions and labels
                 batch["pred_str"] = pred_str_batch
-                batch["label_str"] = processor.batch_decode(prepared_batch["labels"], group_tokens=False, skip_special_tokens=True)
+                batch["label_str"] = processor.batch_decode(prepared_batch["labels"], group_tokens=False,
+                                                            skip_special_tokens=True)
                 batch["raw_label_str"] = batch.get("raw_labels", "")
             return batch
 
@@ -678,15 +684,11 @@ class EvaluationPipeline:
                 continue
 
             # define refs
-            sample_id = re.search(r'SP-\d+', row["audio_id"]).group()
-            ref_spans = ref_ds[ds_index_map[sample_id]]["spans"]
-            ref_errors = ref_ds[ds_index_map[sample_id]]["errors"]
-            ref_spans_codes = set([ref["label"] for ref in ref_spans if ref["label"] not in excluded])
-            ref_errors_codes = set([ref["code"] for ref in ref_errors])
+            ref_errors_codes = set(ref_ds[ds_index_map[row["audio_id"]]]["uzh_errant_errors"])
 
             print(o_text)
             print(corrections)
-            print("ref_spans_codes", ref_spans_codes)
+            # print("ref_spans_codes", ref_spans_codes)
             print("ref_errors_codes", ref_errors_codes)
 
             # Apply all detection algorithms dynamically
@@ -696,17 +698,17 @@ class EvaluationPipeline:
             detected_errors_sets = {name: set([e["type"] for e in errors]) for name, errors in detected_errors.items()}
 
             for name, error_set in detected_errors_sets.items():
-                hits_s, misses_s, unnecessary_s = self._classify_spans(ref_spans_codes, error_set)
+                # hits_s, misses_s, unnecessary_s = self._classify_spans(ref_spans_codes, error_set)
                 hits_e, misses_e, unnecessary_e = self._classify_spans(ref_errors_codes, error_set)
 
-                print(f"{name} -> Hits1: {hits_s}, Misses1: {misses_s}, Unnecessary1: {unnecessary_s}")
+                # print(f"{name} -> Hits1: {hits_s}, Misses1: {misses_s}, Unnecessary1: {unnecessary_s}")
                 print(f"{name} -> Hits2: {hits_e}, Misses2: {misses_e}, Unnecessary2: {unnecessary_e}")
                 print()
 
                 # Store results in the dictionary
-                results[name]["hits_s"] += hits_s
-                results[name]["misses_s"] += misses_s
-                results[name]["unnecessary_s"] += unnecessary_s
+                # results[name]["hits_s"] += hits_s
+                # results[name]["misses_s"] += misses_s
+                # results[name]["unnecessary_s"] += unnecessary_s
                 results[name]["hits_e"] += hits_e
                 results[name]["misses_e"] += misses_e
                 results[name]["unnecessary_e"] += unnecessary_e
@@ -714,18 +716,18 @@ class EvaluationPipeline:
         # Compute scores for each algorithm
         final_results = {}
         for name in detection_algorithms.keys():
-            ref_spans_scores = self._calculate_scores(len(results[name]["hits_s"]), len(results[name]["misses_s"]),
-                                                      len(results[name]["unnecessary_s"]))
+            # ref_spans_scores = self._calculate_scores(len(results[name]["hits_s"]), len(results[name]["misses_s"]),
+            #                                           len(results[name]["unnecessary_s"]))
             ref_errors_scores = self._calculate_scores(len(results[name]["hits_e"]), len(results[name]["misses_e"]),
                                                        len(results[name]["unnecessary_e"]))
 
             final_results[name] = {
-                "ref_spans_scores": ref_spans_scores,
+                #     "ref_spans_scores": ref_spans_scores,
                 "ref_errors_scores": ref_errors_scores
             }
 
             print(f"{name} Results:")
-            print("Ref Spans Scores:", ref_spans_scores)
+            # print("Ref Spans Scores:", ref_spans_scores)
             print("Ref Errors Scores:", ref_errors_scores)
             print()
 
@@ -750,20 +752,104 @@ if __name__ == '__main__':
 
     # Combine configs to use defaults and experiment-specific configs
     config = EvalConfig.from_cli()
-
-    print("Eval GEC")
-
     print(config.model_dump())
 
+    print("Eval GEC UZH")
+
     ref_ds = load_from_disk(
-        os.path.join(config.alt_base_path, "data/chall_mt/processed/synthetic_sample_pair_dataset_test_v0")
+        os.path.join(config.alt_base_path, "data/test/test_v0")
     )
 
-    ref_ds = ref_ds["train"]
+    ###
 
-    ds_index_map = {id: i for i, id in enumerate(ref_ds["sample_id"])}
+    # Define the detection algorithms
+    detection_algorithms = {
+        "simple": simple_error_detection,
+        "multi_union": multi_union_error_detection,
+        "multi_error_majority": multi_error_majority_error_detection,
+        "multi_span_majority": multi_span_majority_error_detection,
+        "multi_prob": lambda annotations: multi_prob_error_detection(annotations, probs)
+    }
 
+    # Store results dynamically using dictionaries
+    results = {
+        name: {
+            "hits": [], "misses": [], "unnecessary": []
+        } for name in detection_algorithms
+    }
+
+    def classify_spans(original_spans: set, corrected_spans: set):
+        hits = original_spans.intersection(corrected_spans)  # Matched errors
+        misses = original_spans.difference(corrected_spans)  # Unmatched errors
+        unnecessary = corrected_spans.difference(original_spans)  # Extra generated errors
+        return hits, misses, unnecessary
+
+    def calculate_scores(hits, misses, unnecessary):
+        precision = hits / (hits + unnecessary) if (hits + unnecessary) > 0 else 0
+        recall = hits / (hits + misses) if (hits + misses) > 0 else 0
+        f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        return {
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1
+        }
+
+    for row in ref_ds:
+
+        o_text = preprocess_text(row["raw_text"])
+        print(o_text)
+        res_correction = grammatical_error_correction_with_props(o_text, num_return_sequences=3)
+        corrections = [correction["generated_text"] for correction in res_correction]
+        annotations = errant_annotate_corrections(o_text, corrections)
+        probs = [correction["probability"] for correction in res_correction]
+
+        excluded = ["M:PUNCT", "R:PUNCT", "U:PUNCT", "M:OTHER", "R:OTHER", "U:OTHER", "M:CONTR", "R:CONTR",
+                    "U:CONTR", "R:ORTH"]
+        annotations = [[e for e in a if e.type not in excluded] for a in annotations]
+
+        # define refs
+        ref_errors_codes = set(row["uzh_errant_errors"])
+
+        # Apply all detection algorithms dynamically
+        detected_errors = {name: algo(annotations) for name, algo in detection_algorithms.items()}
+
+        # Convert detected errors into sets for classification
+        detected_errors_sets = {name: set([e["type"] for e in errors]) for name, errors in detected_errors.items()}
+
+        for name, error_set in detected_errors_sets.items():
+            # hits_s, misses_s, unnecessary_s = self._classify_spans(ref_spans_codes, error_set)
+            hits_e, misses_e, unnecessary_e = classify_spans(ref_errors_codes, error_set)
+
+            # print(f"{name} -> Hits1: {hits_s}, Misses1: {misses_s}, Unnecessary1: {unnecessary_s}")
+            print(f"{name} -> Hits2: {hits_e}, Misses2: {misses_e}, Unnecessary2: {unnecessary_e}")
+            print()
+
+            results[name]["hits"] += hits_e
+            results[name]["misses"] += misses_e
+            results[name]["unnecessary"] += unnecessary_e
+
+    # Compute scores for each algorithm
+    final_results = {}
+    for name in detection_algorithms.keys():
+        ref_errors_scores = calculate_scores(len(results[name]["hits"]), len(results[name]["misses"]),
+                                                   len(results[name]["unnecessary"]))
+
+        final_results[name] = {
+            "scores": ref_errors_scores
+        }
+
+        print(f"{name} Results:")
+        # print("Ref Spans Scores:", ref_spans_scores)
+        print("Ref Errors Scores:", ref_errors_scores)
+        print()
+
+    print(final_results)
+
+    ###
+
+    ds_index_map = {id: i for i, id in enumerate(ref_ds["audio_id"])}
     print(ds_index_map)
 
-    pipeline = EvaluationPipeline(config=config, env=env, index_map=ds_index_map)
-    pipeline.run()
+    # pipeline = EvaluationPipeline(config=config, env=env, index_map=ds_index_map)
+    # pipeline.run()

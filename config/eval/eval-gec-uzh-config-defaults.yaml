@@ -9,10 +9,9 @@ experiment_tag:
 test_corpora:
   desc: "List of test corpora and their configurations"
   value:
-    - dataset: "data/chall_mt/processed/f5_synth_stt_dataset_test_v0"
-      split: "train"
+    - dataset: "data/chall_mt/unprocessed/chall_dataset_second_split_v0"
+      split: "test"
       load_from_disk: true
-      raw_text_column: "text"
 
 device:
   desc: "Device to run the experiment on (e.g., CPU, CUDA)"

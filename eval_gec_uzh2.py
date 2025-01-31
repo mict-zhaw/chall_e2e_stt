@@ -6,7 +6,6 @@ import string
 from typing import List, Union
 import re
 
-
 collections.Iterable = collections.abc.Iterable  # used to prevent error in alignment tool
 from alignment_tool.alignment.extensions.annotation_mutation_evaluation import AnnotationEvaluation
 
@@ -29,7 +28,6 @@ from collections import Counter
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import math
-
 wer_metric = load("wer")
 cer_metric = load("cer")
 
@@ -48,10 +46,12 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device)
 
 
-def preprocess_text(text):
+def preprocess_text(o_text):
+    text = o_text.replace("@!", "").replace("@?", "").replace("@g", "")
     text = text.lower().replace("__", "").replace("  ", " ")
     text = '. '.join(s.strip().capitalize() for s in text.split('.'))
-    return text + "."
+    text = text.strip()
+    return text
 
 
 def errant_annotate_corrections(text, corrections):
@@ -66,7 +66,6 @@ def errant_annotate_corrections(text, corrections):
 
 
 def grammatical_error_correction_with_props(input_sentence, num_return_sequences=5):
-
     # Tokenize input and move to GPU
     input_ids = tokenizer(f"grammar: {input_sentence}", return_tensors="pt").input_ids.to(device)
 
@@ -218,7 +217,7 @@ class EvaluationPipeline:
     label_feature: str = "text_label"
     raw_label_feature: str = "raw_text_label"
 
-    def __init__(self, config: EvalConfig, env: str = "production", index_map: dict = None):
+    def __init__(self, config: EvalConfig, env: str = "production"):
         """
         Initialize the EvaluationPipeline with the given configuration file.
 
@@ -228,7 +227,6 @@ class EvaluationPipeline:
 
         self.config = config
         self.env = env
-        self.index_map = index_map
         random.seed(self.config.seed)
 
         # Define data dir
@@ -270,8 +268,7 @@ class EvaluationPipeline:
         dataset = self.prepare_dataset(dataset)
 
         if self.config.wandb_offline:
-            results = self.evaluate(dataset, self.processor, self.model)
-            print("Results", results)
+            self.evaluate(dataset, self.processor, self.model)
         else:
             import wandb
             with (wandb.init(
@@ -302,7 +299,6 @@ class EvaluationPipeline:
         test_datasets = []
 
         for corpus_config in test_corpora:
-            print(corpus_config)
             if corpus_config.load_from_disk:
                 ds = load_from_disk(
                     os.path.join(self.config.alt_base_path, corpus_config.dataset),
@@ -461,6 +457,11 @@ class EvaluationPipeline:
         self.logger.log_event("Prepare Data")
         remove_columns = ["audio"]
 
+        def filter_by_uzh(batch):
+            return batch["audio_id"] in ds_index_map
+
+        dataset = dataset.filter(filter_by_uzh, num_proc=1)
+
         # Add filtering to only keep samples with at least 2 words
         def filter_by_word_count(batch):
             return len(batch[self.raw_label_feature].split()) >= self.config.min_word_count
@@ -527,7 +528,8 @@ class EvaluationPipeline:
 
                 # Decode predictions and labels
                 batch["pred_str"] = pred_str_batch
-                batch["label_str"] = processor.batch_decode(prepared_batch["labels"], group_tokens=False, skip_special_tokens=True)
+                batch["label_str"] = processor.batch_decode(prepared_batch["labels"], group_tokens=False,
+                                                            skip_special_tokens=True)
                 batch["raw_label_str"] = batch.get("raw_labels", "")
             return batch
 
@@ -556,9 +558,12 @@ class EvaluationPipeline:
             return batch
 
         if self.config.eval_batch_size > 1:
-            results = dataset.map(map_to_result_batch, batch_size=self.config.eval_batch_size, batched=True)
+            results = dataset.map(map_to_result_batch,
+                                  batch_size=self.config.eval_batch_size, batched=True)
         else:
             results = dataset.map(map_to_result)
+
+        errant_results = self.errant_analysis(results)
 
         # Calculate standard metrics
         wer_score = wer_metric.compute(predictions=results["pred_str"], references=results["label_str"])
@@ -609,16 +614,14 @@ class EvaluationPipeline:
                 'reference_words': annot_eval.reference_words,
             }
 
-        errant_results = self.errant_analysis(results)
-
         return {
             'bleu': bleu_score,
             'wer': wer_score,
             'cer': cer_score,
             'chrf': chrf_score,
-            **errant_results,
             **wepr_result_dict
         }
+
 
     def _classify_spans(self, original_spans: set, corrected_spans: set):
         hits = original_spans.intersection(corrected_spans)  # Matched errors
@@ -678,15 +681,11 @@ class EvaluationPipeline:
                 continue
 
             # define refs
-            sample_id = re.search(r'SP-\d+', row["audio_id"]).group()
-            ref_spans = ref_ds[ds_index_map[sample_id]]["spans"]
-            ref_errors = ref_ds[ds_index_map[sample_id]]["errors"]
-            ref_spans_codes = set([ref["label"] for ref in ref_spans if ref["label"] not in excluded])
-            ref_errors_codes = set([ref["code"] for ref in ref_errors])
+            ref_errors_codes = set(ref_ds[ds_index_map[row["audio_id"]]]["uzh_errant_errors"])
 
             print(o_text)
             print(corrections)
-            print("ref_spans_codes", ref_spans_codes)
+            # print("ref_spans_codes", ref_spans_codes)
             print("ref_errors_codes", ref_errors_codes)
 
             # Apply all detection algorithms dynamically
@@ -696,17 +695,17 @@ class EvaluationPipeline:
             detected_errors_sets = {name: set([e["type"] for e in errors]) for name, errors in detected_errors.items()}
 
             for name, error_set in detected_errors_sets.items():
-                hits_s, misses_s, unnecessary_s = self._classify_spans(ref_spans_codes, error_set)
+                # hits_s, misses_s, unnecessary_s = self._classify_spans(ref_spans_codes, error_set)
                 hits_e, misses_e, unnecessary_e = self._classify_spans(ref_errors_codes, error_set)
 
-                print(f"{name} -> Hits1: {hits_s}, Misses1: {misses_s}, Unnecessary1: {unnecessary_s}")
+                # print(f"{name} -> Hits1: {hits_s}, Misses1: {misses_s}, Unnecessary1: {unnecessary_s}")
                 print(f"{name} -> Hits2: {hits_e}, Misses2: {misses_e}, Unnecessary2: {unnecessary_e}")
                 print()
 
                 # Store results in the dictionary
-                results[name]["hits_s"] += hits_s
-                results[name]["misses_s"] += misses_s
-                results[name]["unnecessary_s"] += unnecessary_s
+                # results[name]["hits_s"] += hits_s
+                # results[name]["misses_s"] += misses_s
+                # results[name]["unnecessary_s"] += unnecessary_s
                 results[name]["hits_e"] += hits_e
                 results[name]["misses_e"] += misses_e
                 results[name]["unnecessary_e"] += unnecessary_e
@@ -714,18 +713,18 @@ class EvaluationPipeline:
         # Compute scores for each algorithm
         final_results = {}
         for name in detection_algorithms.keys():
-            ref_spans_scores = self._calculate_scores(len(results[name]["hits_s"]), len(results[name]["misses_s"]),
-                                                      len(results[name]["unnecessary_s"]))
+            # ref_spans_scores = self._calculate_scores(len(results[name]["hits_s"]), len(results[name]["misses_s"]),
+            #                                           len(results[name]["unnecessary_s"]))
             ref_errors_scores = self._calculate_scores(len(results[name]["hits_e"]), len(results[name]["misses_e"]),
                                                        len(results[name]["unnecessary_e"]))
 
             final_results[name] = {
-                "ref_spans_scores": ref_spans_scores,
+                #     "ref_spans_scores": ref_spans_scores,
                 "ref_errors_scores": ref_errors_scores
             }
 
             print(f"{name} Results:")
-            print("Ref Spans Scores:", ref_spans_scores)
+            # print("Ref Spans Scores:", ref_spans_scores)
             print("Ref Errors Scores:", ref_errors_scores)
             print()
 
@@ -750,20 +749,14 @@ if __name__ == '__main__':
 
     # Combine configs to use defaults and experiment-specific configs
     config = EvalConfig.from_cli()
-
-    print("Eval GEC")
-
     print(config.model_dump())
 
     ref_ds = load_from_disk(
-        os.path.join(config.alt_base_path, "data/chall_mt/processed/synthetic_sample_pair_dataset_test_v0")
+        os.path.join(config.alt_base_path, "data/test/test_v0")
     )
 
-    ref_ds = ref_ds["train"]
-
-    ds_index_map = {id: i for i, id in enumerate(ref_ds["sample_id"])}
-
+    ds_index_map = {id: i for i, id in enumerate(ref_ds["audio_id"])}
     print(ds_index_map)
 
-    pipeline = EvaluationPipeline(config=config, env=env, index_map=ds_index_map)
+    pipeline = EvaluationPipeline(config=config, env=env)
     pipeline.run()
